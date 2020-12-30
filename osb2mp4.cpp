@@ -987,6 +987,18 @@ namespace sb
 		const float volume;
 	};
 
+	class Background
+	{
+	public:
+		Background(const std::string& filepath, std::pair<double, double> offset)
+			:
+			filepath(filepath),
+			offset(offset)
+		{}
+		const std::string filepath;
+		std::pair<double, double> offset;
+	};
+
 	// taken from https://stackoverflow.com/questions/478898#478960
 	std::string exec(const std::string& cmd)
 	{
@@ -1007,10 +1019,26 @@ namespace sb
 		return result;
 	}
 
+	double getAudioDuration(const std::string& filepath)
+	{
+		return std::stod(exec("ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"" + filepath + "\""));
+	}
+
+	cv::Mat readImageFile(const std::string& filepath)
+	{
+		cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED);
+		int depth = image.depth();
+		cv::Mat converted;
+		cv::cvtColor(image, converted, cv::COLOR_BGR2BGRA);
+		double scale = depth == CV_16U ? 1.0 / 257 : 1;
+		converted.convertTo(image, CV_32F, scale);
+		return image;
+	}
+
 	class Storyboard
 	{
 	public:
-		Storyboard(const std::filesystem::path& directory, const std::filesystem::path& osb, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, const std::unordered_map<std::string, std::string>& info, /* Background background, Video video, */ std::pair<std::size_t, std::size_t> resolution, double musicVolume, double effectVolume)
+		Storyboard(const std::filesystem::path& directory, const std::filesystem::path& osb, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<Background> backgrounds, /*Video video, */ const std::unordered_map<std::string, std::string>& info, std::pair<std::size_t, std::size_t> resolution, double musicVolume, double effectVolume)
 			:
 			directory(directory),
 			osb(osb),
@@ -1027,20 +1055,42 @@ namespace sb
 			for (std::unique_ptr<Sprite>& sprite : this->sprites)
 				sprite->Initialise();
 			std::pair<double, double> activetime = { std::numeric_limits<int>::max(), std::numeric_limits<int>::min() };
+
+			bool backgroundIsASprite = false;
 			for (const std::unique_ptr<Sprite>& sprite : this->sprites)
 			{
 				std::pair<double, double> at = sprite->GetActiveTime();
 				activetime.first = std::min(activetime.first, at.first);
 				activetime.second = std::max(activetime.second, at.second);
+				if (!backgrounds.empty())
+					backgroundIsASprite = std::max(backgrounds.front().filepath == sprite->GetFilePath(0), backgroundIsASprite);
 			}
 			this->activetime = activetime;
 			auto k = info.find("AudioFilename");
-			if (k != info.end()) this->audioDuration = 1000 * std::stod(exec("ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"" + (directory / k->second).generic_string() + "\""));
+			if (k != info.end()) this->audioDuration = 1000 * getAudioDuration((directory / k->second).generic_string());
 			else this->audioDuration = 0;
 			auto l = info.find("AudioLeadIn");
 			if (k != info.end() && l != info.end()) this->audioLeadIn = std::stoi(l->second);
 			else this->audioLeadIn = 0;
 			std::cout << "Initialised " << this->sprites.size() << " sprites/animations\n";
+
+			backgroundImage = cv::Mat::zeros(resolution.second, resolution.first, CV_8UC3);
+			if (!backgrounds.empty() && !backgroundIsASprite)
+			{
+				Background background = backgrounds.front();
+				cv::Mat image = readImageFile((directory / background.filepath).generic_string());
+				cv::RotatedRect quadRect = cv::RotatedRect(
+					cv::Point2f(
+						resolution.first / 2.0f + background.offset.first * frameScale,
+						resolution.second / 2.0f + background.offset.second * frameScale
+					),
+					cv::Size2f(resolution.second * image.cols / (double)image.rows, resolution.second),
+					0
+				);
+				cv::Point2f quad[4];
+				quadRect.points(quad);
+				RasteriseQuad(backgroundImage.begin<cv::Vec<uint8_t, 3>>(), image.begin<cv::Vec<float, 4>>(), image.cols, image.rows, quad, Colour(1, 1, 1), false, 1);
+			}
 
 			for (const std::unique_ptr<Sprite>& sprite : this->sprites)
 			{
@@ -1048,12 +1098,7 @@ namespace sb
 				for (std::string filePath : filePaths)
 				{
 					if (spriteImages.find(filePath) != spriteImages.end()) continue;
-					cv::Mat image = cv::imread((directory / filePath).generic_string(), cv::IMREAD_UNCHANGED);
-					int depth = image.depth();
-					cv::Mat converted;
-					cv::cvtColor(image, converted, cv::COLOR_BGR2BGRA);
-					double scale = depth == CV_16U ? 1.0 / 257 : 1;
-					converted.convertTo(image, CV_32F, scale);
+					cv::Mat image = readImageFile((directory / filePath).generic_string());
 					spriteImages.emplace(filePath, image);
 				}
 			}
@@ -1090,7 +1135,7 @@ namespace sb
 				delays.push_back(delay);
 				volumes.push_back(sample.volume / 100.0 * (samples.size() + 1) * effectVolume);
 				maxDelay = std::max(maxDelay, delay);
-				maxDuration = std::max(maxDuration, std::stod(exec("ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"" + (directory / sample.filepath).generic_string() + "\"")));
+				maxDuration = std::max(maxDuration, getAudioDuration((directory / sample.filepath).generic_string()));
 			}
 			command += " -filter_complex ";
 			std::string filters;
@@ -1107,7 +1152,7 @@ namespace sb
 		}
 		cv::Mat DrawFrame(double time) const
 		{
-			cv::Mat frame = cv::Mat::zeros(resolution.second, resolution.first, CV_8UC3);
+			cv::Mat frame = backgroundImage.clone();
 			cv::MatIterator_<cv::Vec<uint8_t, 3>> frameStart = frame.begin<cv::Vec<cv::uint8_t, 3>>();
 			for (const std::unique_ptr<Sprite>& sprite : sprites)
 			{
@@ -1115,7 +1160,6 @@ namespace sb
 					continue;
 				double alpha = sprite->OpacityAt(time);
 				if (alpha == 0) continue;
-				alpha /= 255.0;
 				std::pair<double, double> scale = sprite->ScaleAt(time);
 				if (scale.first == 0 || scale.second == 0) continue;
 
@@ -1174,86 +1218,90 @@ namespace sb
 				}
 
 				Colour colour = sprite->ColourAt(time);
-
-				// Rasterize quad
-				std::vector<std::pair<int, int>> ContourX; int y;
-				ContourX.reserve(resolution.second);
-
-				for (y = 0; y < resolution.second; y++)
-				{
-					ContourX.push_back({ std::numeric_limits<int>::max(), std::numeric_limits<int>::min() });
-				}
-
-				ScanLine(quad[0].x, quad[0].y, quad[1].x, quad[1].y, ContourX);
-				ScanLine(quad[1].x, quad[1].y, quad[2].x, quad[2].y, ContourX);
-				ScanLine(quad[2].x, quad[2].y, quad[3].x, quad[3].y, ContourX);
-				ScanLine(quad[3].x, quad[3].y, quad[0].x, quad[0].y, ContourX);
-
-				float imageX = 0;
-				float imageY = 0;
-
-				float minY = std::numeric_limits<float>::max();
-				for (cv::Point2f q : quad)
-					minY = std::min(q.y, minY);
-				minY = std::max(minY, 0.0f);
-				float maxY = std::numeric_limits<float>::min();
-				for (cv::Point2f q : quad)
-					maxY = std::max(q.y, maxY);
-				maxY = std::min(maxY, (float)resolution.second - 1);
-
 				bool additive = sprite->EffectAt(time, ParameterType::Additive);
 
-				for (y = (int)minY; y <= (int)maxY; y++)
-				{
-					if (ContourX[y].second >= ContourX[y].first)
-					{
-						int x = ContourX[y].first;
-						int len = 1 + ContourX[y].second - ContourX[y].first;
-
-						while (len--)
-						{
-							// image-space coords
-							float u = (-(x - quad[0].x) * (quad[1].y - quad[0].y) + (y - quad[0].y) * (quad[1].x - quad[0].x))
-								/ (-(quad[2].x - quad[0].x) * (quad[1].y - quad[0].y) + (quad[2].y - quad[0].y) * (quad[1].x - quad[0].x));
-							float v = (-(x - quad[1].x) * (quad[2].y - quad[1].y) + (y - quad[1].y) * (quad[2].x - quad[1].x))
-								/ (-(quad[0].x - quad[1].x) * (quad[2].y - quad[1].y) + (quad[0].y - quad[1].y) * (quad[2].x - quad[1].x));
-
-							// sample colour with bilinear interpolation
-							Colour imageColour;
-							float imageAlpha;
-							SampleColourAndAlpha(imageStart, image.cols, image.rows, u * image.cols, v * image.rows, imageColour, imageAlpha);
-
-							cv::Vec<uint8_t, 3> framePixel = GetPixel(frameStart, resolution.first, x, y);
-
-							float newAlpha = imageAlpha * alpha;
-
-							// additive (linear dodge) or normal blend mode
-							cv::Vec<uint8_t, 3> newPixel;
-							if (additive)
-							{
-								newPixel = cv::Vec<uint8_t, 3>(
-									cv::saturate_cast<uint8_t>(framePixel[0] + newAlpha * imageColour[2] * colour[2]),
-									cv::saturate_cast<uint8_t>(framePixel[1] + newAlpha * imageColour[1] * colour[1]),
-									cv::saturate_cast<uint8_t>(framePixel[2] + newAlpha * imageColour[0] * colour[0])
-									);
-							}
-							else
-							{
-								newPixel = cv::Vec<uint8_t, 3>(
-									cv::saturate_cast<uint8_t>((1 - newAlpha) * framePixel[0] + newAlpha * imageColour[2] * colour[2]),
-									cv::saturate_cast<uint8_t>((1 - newAlpha) * framePixel[1] + newAlpha * imageColour[1] * colour[1]),
-									cv::saturate_cast<uint8_t>((1 - newAlpha) * framePixel[2] + newAlpha * imageColour[0] * colour[0])
-									);
-							}
-
-							SetPixel(frameStart, resolution.first, x++, y, newPixel);
-						}
-					}
-				}
+				RasteriseQuad(frameStart, imageStart, image.cols, image.rows, quad, colour, additive, alpha);
 			}
 			return frame;
 		}
 	private:
+		void RasteriseQuad(cv::MatIterator_<cv::Vec<uint8_t, 3>> frameStart, cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int imageWidth, int imageHeight, cv::Point2f quad[4], Colour colour, bool additive, double alpha) const
+		{
+			alpha /= 255.0;
+			std::vector<std::pair<int, int>> ContourX; int y;
+			ContourX.reserve(resolution.second);
+
+			for (y = 0; y < resolution.second; y++)
+			{
+				ContourX.push_back({ std::numeric_limits<int>::max(), std::numeric_limits<int>::min() });
+			}
+
+			ScanLine(quad[0].x, quad[0].y, quad[1].x, quad[1].y, ContourX);
+			ScanLine(quad[1].x, quad[1].y, quad[2].x, quad[2].y, ContourX);
+			ScanLine(quad[2].x, quad[2].y, quad[3].x, quad[3].y, ContourX);
+			ScanLine(quad[3].x, quad[3].y, quad[0].x, quad[0].y, ContourX);
+
+			float imageX = 0;
+			float imageY = 0;
+
+			float minY = std::numeric_limits<float>::max();
+			float maxY = std::numeric_limits<float>::min();
+			for (int i = 0; i < 4; i++)
+			{
+				minY = std::min(quad[i].y, minY);
+				maxY = std::max(quad[i].y, maxY);
+			}
+			minY = std::max(minY, 0.0f);
+			maxY = std::min(maxY, (float)resolution.second - 1);
+
+			for (y = (int)minY; y <= (int)maxY; y++)
+			{
+				if (ContourX[y].second >= ContourX[y].first)
+				{
+					int x = ContourX[y].first;
+					int len = 1 + ContourX[y].second - ContourX[y].first;
+
+					while (len--)
+					{
+						// image-space coords
+						float u = (-(x - quad[0].x) * (quad[1].y - quad[0].y) + (y - quad[0].y) * (quad[1].x - quad[0].x))
+							/ (-(quad[2].x - quad[0].x) * (quad[1].y - quad[0].y) + (quad[2].y - quad[0].y) * (quad[1].x - quad[0].x));
+						float v = (-(x - quad[1].x) * (quad[2].y - quad[1].y) + (y - quad[1].y) * (quad[2].x - quad[1].x))
+							/ (-(quad[0].x - quad[1].x) * (quad[2].y - quad[1].y) + (quad[0].y - quad[1].y) * (quad[2].x - quad[1].x));
+
+						// sample colour with bilinear interpolation
+						Colour imageColour;
+						float imageAlpha;
+						SampleColourAndAlpha(imageStart, imageWidth, imageHeight, u, v, imageColour, imageAlpha);
+
+						cv::Vec<uint8_t, 3> framePixel = GetPixel(frameStart, resolution.first, x, y);
+
+						float newAlpha = imageAlpha * alpha;
+
+						// additive (linear dodge) or normal blend mode
+						cv::Vec<uint8_t, 3> newPixel;
+						if (additive)
+						{
+							newPixel = cv::Vec<uint8_t, 3>(
+								cv::saturate_cast<uint8_t>(framePixel[0] + newAlpha * imageColour[2] * colour[2]),
+								cv::saturate_cast<uint8_t>(framePixel[1] + newAlpha * imageColour[1] * colour[1]),
+								cv::saturate_cast<uint8_t>(framePixel[2] + newAlpha * imageColour[0] * colour[0])
+								);
+						}
+						else
+						{
+							newPixel = cv::Vec<uint8_t, 3>(
+								cv::saturate_cast<uint8_t>((1 - newAlpha) * framePixel[0] + newAlpha * imageColour[2] * colour[2]),
+								cv::saturate_cast<uint8_t>((1 - newAlpha) * framePixel[1] + newAlpha * imageColour[1] * colour[1]),
+								cv::saturate_cast<uint8_t>((1 - newAlpha) * framePixel[2] + newAlpha * imageColour[0] * colour[0])
+								);
+						}
+
+						SetPixel(frameStart, resolution.first, x++, y, newPixel);
+					}
+				}
+			}
+		}
 		void SetPixel(cv::MatIterator_<cv::Vec<uint8_t, 3>> imageStart, int width, const int x, int y, cv::Vec<uint8_t, 3> pixel) const
 		{
 			*(imageStart + y * width + x) = pixel;
@@ -1262,9 +1310,11 @@ namespace sb
 		{
 			return *(imageStart + y * width + x);
 		}
-		void SampleColourAndAlpha(cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int width, int height, float x, float y, Colour& outputColour, float& outputAlpha) const
+		void SampleColourAndAlpha(cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int width, int height, float u, float v, Colour& outputColour, float& outputAlpha) const
 		{
 			// i sure hope i'm doing this correctly
+			float x = u * width;
+			float y = v * height;
 			if (y < 0 || x < 0 || x >= width || y >= height)
 			{
 				outputColour = Colour(0, 0, 0);
@@ -1377,12 +1427,13 @@ namespace sb
 		double audioDuration;
 		double audioLeadIn;
 		std::unordered_map<std::string, cv::Mat> spriteImages;
+		cv::Mat backgroundImage;
 		double frameScale;
 		double xOffset;
 	};
 
 	// written mostly in reference to the parser used in osu!lazer (https://github.com/ppy/osu/blob/master/osu.Game/Beatmaps/Formats/LegacyStoryboardDecoder.cs)
-	void parseFile(std::ifstream& file, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::unordered_map<std::string, std::string>& variables, std::unordered_map<std::string, std::string>& info, size_t& lineNumber)
+	void parseFile(std::ifstream& file, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<Background>& backgrounds, std::unordered_map<std::string, std::string>& variables, std::unordered_map<std::string, std::string>& info, size_t& lineNumber)
 	{
 		std::string line;
 		bool inLoop = false;
@@ -1515,9 +1566,9 @@ namespace sb
 				{
 					if (split[0] == "0" && split[1] == "0" && depth == 0)
 					{
-						std::string path = split[2];
+						std::string path = removePathQuotes(split[2]);
 						std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
-						// TODO: background
+						backgrounds.emplace_back(path, offset);
 						break;
 					}
 					if ((split[0] == "Video" || split[0] == "1") && depth == 0)
@@ -1701,6 +1752,7 @@ namespace sb
 		if (!diffFile.is_open()) throw std::exception(("Failed to open \"" + diff + "\".\n").c_str());
 		std::vector<std::unique_ptr<Sprite>> sprites;
 		std::vector<Sample> samples;
+		std::vector<Background> backgrounds;
 		std::unordered_map<std::string, std::string> variables;
 		std::unordered_map<std::string, std::string> info;
 		bool inLoop = false;
@@ -1708,17 +1760,17 @@ namespace sb
 		std::size_t lineNumber = 0;
 
 		std::cout << "Parsing " << osb << "...\n";
-		parseFile(osbFile, sprites, samples, variables, info, lineNumber);
+		parseFile(osbFile, sprites, samples, backgrounds, variables, info, lineNumber);
 		osbFile.close();
 		std::cout << "Parsed " << lineNumber << " lines\n";
 
 		lineNumber = 0;
 		std::cout << "Parsing " << diff << "...\n";
-		parseFile(diffFile, sprites, samples, variables, info, lineNumber);
+		parseFile(diffFile, sprites, samples, backgrounds, variables, info, lineNumber);
 		diffFile.close();
 		std::cout << "Parsed " << lineNumber << " lines\n";
 
-		std::unique_ptr<Storyboard> sb = std::make_unique<Storyboard>(directory, osb, sprites, samples, info, resolution, musicVolume, effectVolume);
+		std::unique_ptr<Storyboard> sb = std::make_unique<Storyboard>(directory, osb, sprites, samples, backgrounds, info, resolution, musicVolume, effectVolume);
 		return sb;
 	}
 }

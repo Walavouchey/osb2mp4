@@ -27,7 +27,7 @@ CPU usage: ~90-95%
 
 ## TODO
 
-- implement background and video
+- implement video
 - implement triggers
 - handle errors
 - fix all edge-cases
