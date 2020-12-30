@@ -7,17 +7,18 @@ This project has been in progress on and off since the middle of September 2020.
 I'll expand this readme eventually. Here are some benchmarks on my computer:
 
 ```
-CPU: AMD Ryzen 5 2400G @ 3.60 GHz
+CPU: AMD Ryzen 5 2400G @ 3.70 GHz
 Render: 1920x1080 @ 30fps
-CPU usage: ~50% (probably should crank that up kek)
+CPU usage: ~90-95%
 ```
 
 | Storyboard             | time (mm:ss) |
 |------------------------|-------------:|
-| Alexithymia 1st minute |         8:45 |
+| Alexithymia            |        40:00 |
+| Double Pendulum        |        17:00 |
 | world.execute(me)      |        11:00 |
-| new beginnings         |         4:48 |
-| Asymmetry              |        15:00 |
+| Asymmetry              |         5:12 |
+| new beginnings         |         2:36 |
 
 ## Dependencies
 
