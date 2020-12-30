@@ -1210,7 +1210,6 @@ namespace sb
 						int x = ContourX[y].first;
 						int len = 1 + ContourX[y].second - ContourX[y].first;
 
-						// Can draw a horizontal line instead of individual pixels here
 						while (len--)
 						{
 							// image-space coords
@@ -1265,6 +1264,7 @@ namespace sb
 		}
 		void SampleColourAndAlpha(cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int width, int height, float x, float y, Colour& outputColour, float& outputAlpha) const
 		{
+			// i sure hope i'm doing this correctly
 			if (y < 0 || x < 0 || x >= width + 1 || y >= height + 1)
 			{
 				outputColour = Colour(0, 0, 0);
@@ -1659,7 +1659,6 @@ namespace sb
 			case Section::Variables:
 			{
 				std::size_t splitPos = line.find('=');
-				// Ignore invalid variables
 				if (splitPos == std::string::npos || splitPos == line.length() - 1) continue;
 				std::string key = line.substr(0, splitPos);
 				std::string value = line.substr(splitPos + 1, line.length() - splitPos - 1);
@@ -1670,7 +1669,6 @@ namespace sb
 			case Section::Info:
 			{
 				std::size_t splitPos = line.find(':');
-				// Ignore invalid variables
 				if (splitPos == std::string::npos || splitPos == line.length() - 1) continue;
 				std::string key = line.substr(0, splitPos);
 				std::string value = line.substr(splitPos + 1, line.length() - splitPos - 1);
@@ -1740,8 +1738,6 @@ int main(int argc, char* argv[]) {
 	double starttime = argc <= 3 ? std::min(activetime.first, audioLeadIn) : std::stod(argv[3]);
 	double duration = argc <= 4 ? activetime.second < audioDuration + 60000 ? std::max(activetime.second, audioDuration) - starttime : audioDuration : std::stod(argv[4]);
 	std::string outputFile = "video.mp4";
-	cv::Mat frame = sb->DrawFrame(starttime);
-	cv::imwrite("frame.png", frame);
 	int frameCount = (int)std::round(fps / (1000.0 / (float)duration));
 	std::cout << "Rendering video...\n";
 	cv::VideoWriter writer = cv::VideoWriter(
