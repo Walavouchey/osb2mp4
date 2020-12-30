@@ -1265,7 +1265,7 @@ namespace sb
 		void SampleColourAndAlpha(cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int width, int height, float x, float y, Colour& outputColour, float& outputAlpha) const
 		{
 			// i sure hope i'm doing this correctly
-			if (y < 0 || x < 0 || x >= width + 1 || y >= height + 1)
+			if (y < 0 || x < 0 || x >= width || y >= height)
 			{
 				outputColour = Colour(0, 0, 0);
 				outputAlpha = 0;
