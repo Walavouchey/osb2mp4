@@ -44,6 +44,46 @@ namespace sb
 		return s[0] == '"' && s[s.length() - 1] == '"' ? s.substr(1, s.length() - 2) : s;
 	}
 
+	// taken from https://stackoverflow.com/questions/478898#478960
+	std::string exec(const std::string& cmd)
+	{
+		char buffer[128];
+		std::string result = "";
+		FILE* pipe = _popen(cmd.c_str(), "r");
+		if (!pipe) throw std::runtime_error("popen() failed!");
+		try {
+			while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+				result += buffer;
+			}
+		}
+		catch (...) {
+			_pclose(pipe);
+			throw;
+		}
+		_pclose(pipe);
+		return result;
+	}
+
+	double getAudioDuration(const std::string& filepath)
+	{
+		return std::stod(exec("ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"" + filepath + "\""));
+	}
+
+	cv::Mat convertImage(cv::Mat image)
+	{
+		int depth = image.depth();
+		cv::Mat converted;
+		cv::cvtColor(image, converted, cv::COLOR_BGR2BGRA);
+		double scale = depth == CV_16U ? 1.0 / 257 : 1;
+		converted.convertTo(image, CV_32F, scale);
+		return image;
+	}
+
+	cv::Mat readImageFile(const std::string& filepath)
+	{
+		return convertImage(cv::imread(filepath, cv::IMREAD_UNCHANGED));
+	}
+
 	enum class Layer
 	{
 		Background,
@@ -990,59 +1030,47 @@ namespace sb
 	class Background
 	{
 	public:
+		Background() = default;
 		Background(const std::string& filepath, std::pair<double, double> offset)
 			:
 			filepath(filepath),
 			offset(offset)
-		{}
-		const std::string filepath;
-		std::pair<double, double> offset;
+		{
+			exists = true;
+		}
+		Background& operator=(const Background&) = default;
+		std::string filepath = "";
+		std::pair<double, double> offset = { 0,0 };
+		bool exists = false;
 	};
-
-	// taken from https://stackoverflow.com/questions/478898#478960
-	std::string exec(const std::string& cmd)
+	class Video
 	{
-		char buffer[128];
-		std::string result = "";
-		FILE* pipe = _popen(cmd.c_str(), "r");
-		if (!pipe) throw std::runtime_error("popen() failed!");
-		try {
-			while (fgets(buffer, sizeof buffer, pipe) != NULL) {
-				result += buffer;
-			}
+	public:
+		Video() = default;
+		Video(double starttime, const std::string& filepath, std::pair<double, double> offset)
+			:
+			starttime(starttime),
+			filepath(filepath),
+			offset(offset)
+		{
+			exists = true;
 		}
-		catch (...) {
-			_pclose(pipe);
-			throw;
-		}
-		_pclose(pipe);
-		return result;
-	}
-
-	double getAudioDuration(const std::string& filepath)
-	{
-		return std::stod(exec("ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"" + filepath + "\""));
-	}
-
-	cv::Mat readImageFile(const std::string& filepath)
-	{
-		cv::Mat image = cv::imread(filepath, cv::IMREAD_UNCHANGED);
-		int depth = image.depth();
-		cv::Mat converted;
-		cv::cvtColor(image, converted, cv::COLOR_BGR2BGRA);
-		double scale = depth == CV_16U ? 1.0 / 257 : 1;
-		converted.convertTo(image, CV_32F, scale);
-		return image;
-	}
+		Video& operator=(const Video&) = default;
+		double starttime = 0;
+		std::string filepath = "";
+		std::pair<double, double> offset = { 0, 0 };
+		bool exists = false;
+	};
 
 	class Storyboard
 	{
 	public:
-		Storyboard(const std::filesystem::path& directory, const std::filesystem::path& osb, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<Background> backgrounds, /*Video video, */ const std::unordered_map<std::string, std::string>& info, std::pair<std::size_t, std::size_t> resolution, double musicVolume, double effectVolume)
+		Storyboard(const std::filesystem::path& directory, const std::filesystem::path& osb, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, Background background, Video video, const std::unordered_map<std::string, std::string>& info, std::pair<std::size_t, std::size_t> resolution, double musicVolume, double effectVolume)
 			:
 			directory(directory),
 			osb(osb),
 			samples(samples),
+			video(video),
 			info(info),
 			resolution(resolution),
 			musicVolume(musicVolume),
@@ -1062,8 +1090,8 @@ namespace sb
 				std::pair<double, double> at = sprite->GetActiveTime();
 				activetime.first = std::min(activetime.first, at.first);
 				activetime.second = std::max(activetime.second, at.second);
-				if (!backgrounds.empty())
-					backgroundIsASprite = std::max(backgrounds.front().filepath == sprite->GetFilePath(0), backgroundIsASprite);
+				if (background.exists)
+					backgroundIsASprite = std::max(background.filepath == sprite->GetFilePath(0), backgroundIsASprite);
 			}
 			this->activetime = activetime;
 			auto k = info.find("AudioFilename");
@@ -1074,10 +1102,10 @@ namespace sb
 			else this->audioLeadIn = 0;
 			std::cout << "Initialised " << this->sprites.size() << " sprites/animations\n";
 
+			blankImage = cv::Mat::zeros(resolution.second, resolution.first, CV_8UC3);
 			backgroundImage = cv::Mat::zeros(resolution.second, resolution.first, CV_8UC3);
-			if (!backgrounds.empty() && !backgroundIsASprite)
+			if (background.exists && !backgroundIsASprite)
 			{
-				Background background = backgrounds.front();
 				cv::Mat image = readImageFile((directory / background.filepath).generic_string());
 				cv::RotatedRect quadRect = cv::RotatedRect(
 					cv::Point2f(
@@ -1091,6 +1119,8 @@ namespace sb
 				quadRect.points(quad);
 				RasteriseQuad(backgroundImage.begin<cv::Vec<uint8_t, 3>>(), image.begin<cv::Vec<float, 4>>(), image.cols, image.rows, quad, Colour(1, 1, 1), false, 1);
 			}
+
+			if (video.exists && !(videoOpen = videoCap.open((directory / video.filepath).generic_string()))) videoCap.release();
 
 			for (const std::unique_ptr<Sprite>& sprite : this->sprites)
 			{
@@ -1150,9 +1180,9 @@ namespace sb
 			//std::cout << command << "\n";
 			system(command.c_str());
 		}
-		cv::Mat DrawFrame(double time) const
+		cv::Mat DrawFrame(double time)
 		{
-			cv::Mat frame = backgroundImage.clone();
+			cv::Mat frame = video.exists ? GetVideoImage(time) : backgroundImage.clone();
 			cv::MatIterator_<cv::Vec<uint8_t, 3>> frameStart = frame.begin<cv::Vec<cv::uint8_t, 3>>();
 			for (const std::unique_ptr<Sprite>& sprite : sprites)
 			{
@@ -1225,6 +1255,44 @@ namespace sb
 			return frame;
 		}
 	private:
+		cv::Mat GetVideoImage(double time)
+		{
+			int offset = 500;
+			int crossfadeDuration = 1000;
+			cv::Mat frame = time + offset >= video.starttime && time < video.starttime ? backgroundImage.clone() : blankImage.clone();
+			cv::Mat image;
+#pragma omp critical
+			if (videoOpen)
+			{
+				// TODO: fix frames rarely coming in incorrect order
+				videoCap.set(cv::VideoCaptureProperties::CAP_PROP_POS_MSEC, time - video.starttime);
+				videoCap.read(image);
+			}
+			if (image.empty()) return frame;
+			else if (time + offset < video.starttime) return backgroundImage.clone();
+			image = convertImage(image);
+			cv::RotatedRect quadRect = cv::RotatedRect(
+				cv::Point2f(
+					resolution.first / 2.0f + video.offset.first * frameScale,
+					resolution.second / 2.0f + video.offset.second * frameScale
+				),
+				cv::Size2f(resolution.second * image.cols / (double)image.rows, resolution.second),
+				0
+			);
+			cv::Point2f quad[4];
+			quadRect.points(quad);
+			double alpha = 1;
+			if (time + offset + 100 >= video.starttime && time < video.starttime)
+			{
+				alpha = std::clamp(InterpolateLinear(1.0, 0.0, (video.starttime - time) / crossfadeDuration), 0.0, 1.0);
+				cv::Mat p = cv::Mat::zeros(1, 1, CV_32FC3);
+				cv::Mat pixel;
+				cv::cvtColor(p, pixel, cv::COLOR_BGR2BGRA);
+				RasteriseQuad(frame.begin<cv::Vec<uint8_t, 3>>(), pixel.begin<cv::Vec<float, 4>>(), 1, 1, quad, Colour(1, 1, 1), false, 1 - alpha);
+			}
+			RasteriseQuad(frame.begin<cv::Vec<uint8_t, 3>>(), image.begin<cv::Vec<float, 4>>(), image.cols, image.rows, quad, Colour(1, 1, 1), false, alpha);
+			return frame;
+		}
 		void RasteriseQuad(cv::MatIterator_<cv::Vec<uint8_t, 3>> frameStart, cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int imageWidth, int imageHeight, cv::Point2f quad[4], Colour colour, bool additive, double alpha) const
 		{
 			alpha /= 255.0;
@@ -1419,25 +1487,31 @@ namespace sb
 		std::vector<Sample> samples;
 		std::unordered_map<std::string, std::string> info;
 		std::pair<double, double> activetime;
-		// const Background background;
-		// const Video video;
 		const std::pair<std::size_t, std::size_t> resolution;
 		double musicVolume;
 		double effectVolume;
 		double audioDuration;
 		double audioLeadIn;
 		std::unordered_map<std::string, cv::Mat> spriteImages;
+		cv::Mat blankImage;
 		cv::Mat backgroundImage;
+		Video video;
+		cv::VideoCapture videoCap;
+		cv::Mat videoImage;
+		bool videoOpen = false;
+		double lastFrame;
 		double frameScale;
 		double xOffset;
 	};
 
 	// written mostly in reference to the parser used in osu!lazer (https://github.com/ppy/osu/blob/master/osu.Game/Beatmaps/Formats/LegacyStoryboardDecoder.cs)
-	void parseFile(std::ifstream& file, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<Background>& backgrounds, std::unordered_map<std::string, std::string>& variables, std::unordered_map<std::string, std::string>& info, size_t& lineNumber)
+	void parseFile(std::ifstream& file, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, Background& background, Video& video, std::unordered_map<std::string, std::string>& variables, std::unordered_map<std::string, std::string>& info, size_t& lineNumber)
 	{
 		std::string line;
 		bool inLoop = false;
 		bool inTrigger = false;
+		bool hasBackground = false;
+		bool hasVideo = false;
 		enum class Section
 		{
 			None,
@@ -1542,10 +1616,10 @@ namespace sb
 						// TODO: Error
 					}
 					std::string triggerName = split[1];
-					double startTime = std::stod(split[2]);
+					double starttime = std::stod(split[2]);
 					double endTime = std::stod(split[3]);
 					int groupNumber = split.size() > 4 ? std::stoi(split[4]) : 0;
-					(*(sprites.end() - 1))->AddTrigger({ triggerName, startTime, endTime, groupNumber });
+					(*(sprites.end() - 1))->AddTrigger({ triggerName, starttime, endTime, groupNumber });
 					inTrigger = true;
 				}
 				break;
@@ -1555,25 +1629,30 @@ namespace sb
 					{
 						// TODO: Error
 					}
-					double startTime = std::stod(split[1]);
+					double starttime = std::stod(split[1]);
 					int loopCount = std::stoi(split[2]);
-					(*(sprites.end() - 1))->AddLoop({ startTime, loopCount });
+					(*(sprites.end() - 1))->AddLoop({ starttime, loopCount });
 					inLoop = true;
 				}
 				break;
 				case Keyword::None:
 				default:
 				{
-					if (split[0] == "0" && split[1] == "0" && depth == 0)
+					if (split[0] == "0" && split[1] == "0" && depth == 0 && !hasBackground)
 					{
 						std::string path = removePathQuotes(split[2]);
 						std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
-						backgrounds.emplace_back(path, offset);
+						background = Background(path, offset);
+						hasBackground = true;
 						break;
 					}
-					if ((split[0] == "Video" || split[0] == "1") && depth == 0)
+					if (((split[0] == "Video" || split[0] == "1") && !hasVideo) && depth == 0)
 					{
-						// TODO: video
+						double starttime = std::stod(split[1]);
+						std::string path = removePathQuotes(split[2]);
+						std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
+						video = Video(starttime, path, offset);
+						hasVideo = true;
 						break;
 					}
 					if (depth == 0) break;
@@ -1581,7 +1660,7 @@ namespace sb
 						split[3] = split[2];
 
 					Easing easing = static_cast<Easing>(std::stoi(split[1]));
-					double startTime = std::stod(split[2]);
+					double starttime = std::stod(split[2]);
 					double endTime = std::stod(split[3]);
 
 					std::unordered_map<std::string, EventType>::const_iterator k = EventTypeStrings.find(split[0]);
@@ -1593,7 +1672,7 @@ namespace sb
 					{
 						double startValue = std::stod(split[4]);
 						double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::F, easing, startTime, endTime, startValue, endValue);
+						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::F, easing, starttime, endTime, startValue, endValue);
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1603,7 +1682,7 @@ namespace sb
 					{
 						double startValue = std::stod(split[4]);
 						double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::S, easing, startTime, endTime, startValue, endValue);
+						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::S, easing, starttime, endTime, startValue, endValue);
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1615,7 +1694,7 @@ namespace sb
 						double startY = std::stod(split[5]);
 						double endX = split.size() > 6 ? std::stod(split[6]) : startX;
 						double endY = split.size() > 7 ? std::stod(split[7]) : startY;
-						std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::V, easing, startTime, endTime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
+						std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::V, easing, starttime, endTime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1625,7 +1704,7 @@ namespace sb
 					{
 						double startValue = std::stod(split[4]);
 						double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::R, easing, startTime, endTime, startValue, endValue);
+						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::R, easing, starttime, endTime, startValue, endValue);
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1637,7 +1716,7 @@ namespace sb
 						double startY = std::stod(split[5]);
 						double endX = split.size() > 6 ? std::stod(split[6]) : startX;
 						double endY = split.size() > 7 ? std::stod(split[7]) : startY;
-						std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::M, easing, startTime, endTime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
+						std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::M, easing, starttime, endTime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1647,7 +1726,7 @@ namespace sb
 					{
 						double startValue = std::stod(split[4]);
 						double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MX, easing, startTime, endTime, startValue, endValue);
+						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MX, easing, starttime, endTime, startValue, endValue);
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1657,7 +1736,7 @@ namespace sb
 					{
 						double startValue = std::stod(split[4]);
 						double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MY, easing, startTime, endTime, startValue, endValue);
+						std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MY, easing, starttime, endTime, startValue, endValue);
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1671,7 +1750,7 @@ namespace sb
 						int endR = split.size() > 7 ? std::stoi(split[7]) : startR;
 						int endG = split.size() > 8 ? std::stoi(split[8]) : startG;
 						int endB = split.size() > 9 ? std::stoi(split[9]) : startB;
-						std::unique_ptr<Event<Colour>> event = std::make_unique<Event<Colour>>(EventType::C, easing, startTime, endTime, Colour { startR / 255.0f, startG / 255.0f, startB / 255.0f }, Colour{ endR / 255.0f, endG / 255.0f, endB / 255.0f });
+						std::unique_ptr<Event<Colour>> event = std::make_unique<Event<Colour>>(EventType::C, easing, starttime, endTime, Colour { startR / 255.0f, startG / 255.0f, startB / 255.0f }, Colour{ endR / 255.0f, endG / 255.0f, endB / 255.0f });
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
 						else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
 						else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -1684,13 +1763,13 @@ namespace sb
 						switch (parameterType)
 						{
 						case ParameterType::Additive:
-							event = std::make_unique<Event<ParameterType>>(EventType::P, easing, startTime, endTime, ParameterType::Additive, ParameterType::Additive);
+							event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endTime, ParameterType::Additive, ParameterType::Additive);
 							break;
 						case ParameterType::FlipH:
-							event = std::make_unique<Event<ParameterType>>(EventType::P, easing, startTime, endTime, ParameterType::FlipH, ParameterType::FlipH);
+							event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endTime, ParameterType::FlipH, ParameterType::FlipH);
 							break;
 						case ParameterType::FlipV:
-							event = std::make_unique<Event<ParameterType>>(EventType::P, easing, startTime, endTime, ParameterType::FlipV, ParameterType::FlipV);
+							event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endTime, ParameterType::FlipV, ParameterType::FlipV);
 							break;
 						}
 						if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
@@ -1752,7 +1831,8 @@ namespace sb
 		if (!diffFile.is_open()) throw std::exception(("Failed to open \"" + diff + "\".\n").c_str());
 		std::vector<std::unique_ptr<Sprite>> sprites;
 		std::vector<Sample> samples;
-		std::vector<Background> backgrounds;
+		Background background;
+		Video video;
 		std::unordered_map<std::string, std::string> variables;
 		std::unordered_map<std::string, std::string> info;
 		bool inLoop = false;
@@ -1760,17 +1840,17 @@ namespace sb
 		std::size_t lineNumber = 0;
 
 		std::cout << "Parsing " << osb << "...\n";
-		parseFile(osbFile, sprites, samples, backgrounds, variables, info, lineNumber);
+		parseFile(osbFile, sprites, samples, background, video, variables, info, lineNumber);
 		osbFile.close();
 		std::cout << "Parsed " << lineNumber << " lines\n";
 
 		lineNumber = 0;
 		std::cout << "Parsing " << diff << "...\n";
-		parseFile(diffFile, sprites, samples, backgrounds, variables, info, lineNumber);
+		parseFile(diffFile, sprites, samples, background, video, variables, info, lineNumber);
 		diffFile.close();
 		std::cout << "Parsed " << lineNumber << " lines\n";
 
-		std::unique_ptr<Storyboard> sb = std::make_unique<Storyboard>(directory, osb, sprites, samples, backgrounds, info, resolution, musicVolume, effectVolume);
+		std::unique_ptr<Storyboard> sb = std::make_unique<Storyboard>(directory, osb, sprites, samples, background, video, info, resolution, musicVolume, effectVolume);
 		return sb;
 	}
 }
@@ -1807,7 +1887,7 @@ int main(int argc, char* argv[]) {
 		writer.write(frame);
 	}
 	writer.release();
-	std::cout << "Generating audio...\n";
+	std::cout << "\nGenerating audio...\n";
 	sb->generateAudio("audio.mp3");
 	std::cout << "Merging audio and video...\n";
 	std::stringstream command;
