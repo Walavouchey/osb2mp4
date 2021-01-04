@@ -15,7 +15,8 @@
 
 namespace sb
 {
-	void stringReplace(std::string& s, const std::string& search, const std::string& replace) {
+	void stringReplace(std::string& s, const std::string& search, const std::string& replace)
+	{
 		std::size_t pos = 0;
 		while ((pos = s.find(search, pos)) != std::string::npos) {
 			s.replace(pos, search.length(), replace);
@@ -324,17 +325,17 @@ namespace sb
 	public:
 		Keyframe()
 		{}
-		Keyframe(double time, T value, Easing easing, double actualStarttime)
+		Keyframe(double time, T value, Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
 			:
 			time(time),
 			value(value),
 			easing(easing),
-			actualStarttime(actualStarttime)
+			interpolationOffset(interpolationOffset == std::numeric_limits<double>::infinity() ? time : interpolationOffset)
 		{}
 		double time;
 		T value;
 		Easing easing;
-		double actualStarttime;
+		double interpolationOffset;
 	};
 
 	class Colour
@@ -379,6 +380,13 @@ namespace sb
 			ty
 		);
 	}
+	/*
+	template <typename T>
+	T InterpolateBilinear(T topLeft, T topRight, T bottomLeft, T bottomRight, double tx, double ty)
+	{
+		return (topLeft + (topRight - topLeft) * tx) * (1 - ty) + (bottomLeft + (bottomRight - bottomLeft) * tx) * ty;
+	}
+	*/
 	template <typename T>
 	T keyframeValueAt(const std::vector<Keyframe<T>>& keyframes, double time)
 	{
@@ -399,7 +407,7 @@ namespace sb
 		if (!found) keyframe = *(keyframes.end() - 1);
 		if (keyframe.easing == Easing::Step)
 			return keyframe.value;
-		double t = (time - keyframe.actualStarttime) / (endKeyframe.time - keyframe.actualStarttime);
+		double t = (time - keyframe.interpolationOffset) / (std::max(endKeyframe.time, endKeyframe.interpolationOffset) - keyframe.interpolationOffset);
 		t = applyEasing(keyframe.easing, t);
 		return InterpolateLinear(keyframe.value, endKeyframe.value, t);
 	}
@@ -422,6 +430,10 @@ namespace sb
 		virtual double GetEndTime() const = 0;
 		virtual void SetStartTime(double) = 0;
 		virtual void SetEndTime(double) = 0;
+		virtual int GetTriggerID() const = 0;
+		virtual double GetTriggerST() const = 0;
+		virtual int GetTriggerGP() const = 0;
+		virtual void SetTriggerID(int, double, int) = 0;
 		virtual ~IEvent() {}
 	};
 	template <typename T>
@@ -429,18 +441,21 @@ namespace sb
 	{
 	public:
 		Event() = default;
-		Event(EventType type, Easing easing, double starttime, double endtime, T startvalue, T endvalue)
+		Event(EventType type, Easing easing, double starttime, double endtime, T startvalue, T endvalue, int triggerID = 0, double triggerST = 0, double triggerGP = 0)
 			:
 			type(type),
 			easing(easing),
 			starttime(starttime),
 			endtime(endtime),
 			startvalue(startvalue),
-			endvalue(endvalue)
+			endvalue(endvalue),
+			triggerID(triggerID),
+			triggerST(triggerST),
+			triggerGP(triggerGP)
 		{}
 		std::unique_ptr<IEvent> copy() const
 		{
-			return std::make_unique<Event<T>>(type, easing, starttime, endtime, startvalue, endvalue);
+			return std::make_unique<Event<T>>(type, easing, starttime, endtime, startvalue, endvalue, triggerID, triggerST, triggerGP);
 		}
 		EventType GetType() const
 		{
@@ -474,6 +489,24 @@ namespace sb
 		{
 			return endvalue;
 		}
+		int GetTriggerID() const
+		{
+			return triggerID;
+		}
+		double GetTriggerST() const
+		{
+			return triggerST;
+		}
+		int GetTriggerGP() const
+		{
+			return triggerGP;
+		}
+		void SetTriggerID(int id, double st, int gp)
+		{
+			triggerID = id;
+			triggerST = st;
+			triggerGP = gp;
+		}
 	private:
 		EventType type;
 		Easing easing;
@@ -481,91 +514,108 @@ namespace sb
 		double endtime;
 		T startvalue;
 		T endvalue;
+		int triggerID;
+		double triggerST;
+		int triggerGP;
 	};
 
 	template <typename T, typename V, typename Selector>
-	void generateKeyframes(std::vector<Keyframe<T>>& keyframes, const std::vector<std::unique_ptr<Event<V>>>& events, Selector W)
+	void addKeyframe(Selector W, std::vector<Keyframe<T>>& keyframes, double time, V value, bool alt, Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
 	{
-		int i = -2;
-		for (const std::unique_ptr<Event<V>>& event : events)
-		{
-			i += 2;
-			bool appendEndtime = event->GetEndTime() > event->GetStartTime();
-			if (i == 0)
-			{
-				keyframes.push_back(Keyframe<T>(-std::numeric_limits<double>::infinity(), W(event->GetStartValue()), Easing::Step, -std::numeric_limits<double>::infinity()));
-				keyframes.push_back(Keyframe<T>(event->GetStartTime(), appendEndtime ? W(event->GetStartValue()) : W(event->GetEndValue()), appendEndtime ? event->GetEasing() : Easing::Step, event->GetStartTime()));
-				if (appendEndtime)
-				{
-					keyframes.push_back(Keyframe<T>(event->GetEndTime(), W(event->GetEndValue()), Easing::Step, event->GetEndTime()));
-				}
-				else i--;
-				continue;
-			}
-			if (keyframes[i - 1].time >= event->GetStartTime())
-			{
-				keyframes.push_back(Keyframe<T>(keyframes[i - 1].time, appendEndtime ? W(event->GetStartValue()) : W(event->GetEndValue()), appendEndtime ? event->GetEasing() : Easing::Step, event->GetStartTime()));
-				i--;
-			}
-			else
-			{
-				keyframes.push_back(Keyframe<T>(event->GetStartTime(), appendEndtime ? W(event->GetStartValue()) : W(event->GetEndValue()), appendEndtime ? event->GetEasing() : Easing::Step, event->GetStartTime()));
-			}
-			if (appendEndtime)
-			{
-				keyframes.push_back(Keyframe<T>(event->GetEndTime(), W(event->GetEndValue()), Easing::Step, event->GetEndTime()));
-			}
-			else i--;
-		}
+		keyframes.push_back(Keyframe<T>(time, W(value), easing, interpolationOffset));
 	}
-	// TODO: will want to merge these but i managed to dig myself a little hole at the beginning
-	void generateParameterKeyframes(std::vector<Keyframe<bool>>& keyframes, const std::vector<std::unique_ptr<Event<ParameterType>>>& events)
+	template <typename T = bool, typename V = ParameterType, typename Selector>
+	void addKeyframe(Selector W, std::vector<Keyframe<T>>& keyframes, double time, ParameterType value, bool alt, Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
 	{
-		int i = -2;
-		for (const std::unique_ptr<Event<ParameterType>>& event : events)
+		keyframes.push_back(Keyframe<T>(time, alt, Easing::Step, interpolationOffset));
+	}
+
+	template <typename T, typename V, typename Selector>
+	void generateKeyframes(std::vector<Keyframe<T>>& keyframes, const std::vector<std::unique_ptr<Event<V>>>& events, const std::vector<std::tuple<double, double, int>>& activations, Selector W)
+	{
+		std::vector<std::unique_ptr<Event<V>>> triggerEvents;
+		std::vector<Keyframe<T>> triggerKeyframes;
+		for (typename std::vector<std::unique_ptr<Event<V>>>::const_iterator it = events.begin(); it < events.end(); it++)
 		{
-			i += 2;
-			bool appendEndtime = event->GetEndTime() > event->GetStartTime();
-			if (i == 0)
+			const std::unique_ptr<Event<V>>& event = *it;
+			if (event->GetTriggerID() != 0)
 			{
-				keyframes.push_back(Keyframe<bool>(-std::numeric_limits<double>::infinity(), true, Easing::Step, -std::numeric_limits<double>::infinity()));
-				if (appendEndtime)
-				{
-					keyframes.push_back(Keyframe<bool>(event->GetEndTime(), false, Easing::Step, event->GetEndTime()));
-				}
-				else i--;
+				triggerEvents.push_back(std::make_unique<Event<V>>(*dynamic_cast<Event<V>*>(event->copy().get())));
 				continue;
 			}
-			if (keyframes[i - 1].time >= event->GetStartTime())
+			bool appendEndtime = event->GetEndTime() > event->GetStartTime();
+			if (it == events.begin())
 			{
-				keyframes.push_back(Keyframe<bool>(keyframes[i - 1].time, true, appendEndtime ? event->GetEasing() : Easing::Step, event->GetStartTime()));
-				i--;
+				// the starting event overrides the sprite's initial position
+				addKeyframe(W, keyframes, -std::numeric_limits<double>::infinity(), event->GetStartValue(), true, Easing::Step);
+				addKeyframe(W, keyframes, event->GetStartTime(), appendEndtime ? event->GetStartValue() : event->GetEndValue(), true, appendEndtime ? event->GetEasing() : Easing::Step);
+				if (appendEndtime)
+					addKeyframe(W, keyframes, event->GetEndTime(), event->GetEndValue(), false, Easing::Step);
+				continue;
 			}
-			else
-			{
-				keyframes.push_back(Keyframe<bool>(event->GetStartTime(), true, appendEndtime ? event->GetEasing() : Easing::Step, event->GetStartTime()));
-			}
+			// the first event overrides subsequent overlapping events, but their interpolation still starts from their respective times
+			bool eventsOverlap = keyframes[keyframes.size() - 1].time > event->GetStartTime();
+			addKeyframe(W, keyframes,
+				eventsOverlap ? keyframes[keyframes.size() - 1].time : event->GetStartTime(),
+				appendEndtime ? event->GetStartValue() : event->GetEndValue(), true,
+				appendEndtime ? event->GetEasing() : Easing::Step,
+				event->GetStartTime()
+			);
+			if (eventsOverlap) keyframes[keyframes.size() - 2].time = event->GetStartTime();
 			if (appendEndtime)
-			{
-				keyframes.push_back(Keyframe<bool>(event->GetEndTime(), false, Easing::Step, event->GetEndTime()));
-			}
-			else i--;
+				addKeyframe(W, keyframes, event->GetEndTime(), event->GetEndValue(), false, Easing::Step);
 		}
+		for (typename std::vector<std::unique_ptr<Event<V>>>::const_iterator it = triggerEvents.begin(); it < triggerEvents.end(); it++)
+		{
+			const std::unique_ptr<Event<V>>& event = *it;
+			bool appendEndtime = event->GetEndTime() > event->GetStartTime();
+			bool eventsOverlap = triggerKeyframes.size() < 2 ? false : triggerKeyframes[triggerKeyframes.size() - 2].time > event->GetStartTime();
+			std::tuple<double, double, int> currActivation;
+			std::tuple<double, double, int> nextActivation;
+			bool triggersOverlap = false;
+			for (std::vector<std::tuple<double, double, int>>::const_iterator activationIt = activations.begin(); activationIt != activations.end() - 1; activationIt++)
+				if (std::get<0>(*activationIt) == event->GetTriggerST())
+				{
+					currActivation = *activationIt;
+					nextActivation = *(activationIt + 1);
+					break;
+				}
+			if (std::get<1>(currActivation) > std::get<0>(nextActivation))
+				triggersOverlap = true;
+			// this is reversed when an event from a trigger activation overrides an event from a previous trigger activation
+			double starttime = triggersOverlap && event->GetEndTime() > std::get<0>(nextActivation) ?
+				std::get<0>(nextActivation)
+				: (eventsOverlap ?
+					triggerKeyframes[triggerKeyframes.size() - 1].time
+					: event->GetStartTime());
+			double endtime = triggersOverlap && event->GetEndTime() > std::get<0>(nextActivation) ?
+				std::get<0>(nextActivation)
+				: event->GetEndTime();
+			addKeyframe(W, triggerKeyframes,
+				starttime,
+				appendEndtime ? event->GetStartValue() : event->GetEndValue(), true,
+				appendEndtime ? event->GetEasing() : Easing::Step,
+				event->GetStartTime()
+			);
+			if (eventsOverlap) triggerKeyframes[triggerKeyframes.size() - 2].time = event->GetStartTime();
+			if (appendEndtime)
+				addKeyframe(W, triggerKeyframes, endtime, event->GetEndValue(), false, Easing::Step);
+		}
+		for (Keyframe<T>& keyframe : triggerKeyframes)
+			keyframes.push_back(keyframe);
+		std::stable_sort(keyframes.begin(), keyframes.end(), [](const Keyframe<T>& a, const Keyframe<T>& b) { return a.time < b.time; });
 	}
 
 	// a little bit of dumb bullshit down below
 	template <typename T>
 	struct nop
 	{
-		T operator()(T in)
-		{
-			return in;
-		}
+		T operator()(T in) { return in; }
 	};
 	template <class ... t>
 	constexpr bool alwaysFalse = false;
 	template <EventType T, typename R, ParameterType P = ParameterType::Additive>
-	R generateKeyframesForEvent(const std::vector<std::unique_ptr<IEvent>>& events, std::pair<double, double> coordinates)
+	R generateKeyframesForEvent(const std::vector<std::unique_ptr<IEvent>>& events, std::pair<double, double> coordinates, const std::vector<std::tuple<double, double, int>>& activations)
 	{
 		static_assert(T != EventType::P && P == ParameterType::Additive || T == EventType::P, "Invalid template arguments");
 		auto XKeyframes = std::vector<Keyframe<double>>();
@@ -662,22 +712,16 @@ namespace sb
 			}
 			struct first
 			{
-				double operator()(std::pair<double, double> in)
-				{
-					return in.first;
-				}
+				double operator()(std::pair<double, double> in) { return in.first; }
 			};
 			struct second
 			{
-				double operator()(std::pair<double, double> in)
-				{
-					return in.second;
-				}
+				double operator()(std::pair<double, double> in) { return in.second; }
 			};
 			if (compatibilityMode)
 			{
-				generateKeyframes<double, std::pair<double, double>>(XKeyframes, applicableEventsXY, first());
-				generateKeyframes<double, std::pair<double, double>>(YKeyframes, applicableEventsXY, second());
+				generateKeyframes<double, std::pair<double, double>>(XKeyframes, applicableEventsXY, activations, first());
+				generateKeyframes<double, std::pair<double, double>>(YKeyframes, applicableEventsXY, activations, second());
 			}
 			else
 			{
@@ -686,16 +730,15 @@ namespace sb
 						XKeyframes.push_back(Keyframe<double>(-std::numeric_limits<double>::infinity(), coordinates.first, Easing::Step, -std::numeric_limits<double>::infinity()));
 					else
 						XKeyframes.push_back(Keyframe<double>(-std::numeric_limits<double>::infinity(), 1, Easing::Step, -std::numeric_limits<double>::infinity()));
-
 				else
-					generateKeyframes<double, double>(XKeyframes, applicableEventsX, nop<double>());
+					generateKeyframes<double, double>(XKeyframes, applicableEventsX, activations, nop<double>());
 				if (applicableEventsY.size() == 0)
 					if constexpr (T == EventType::M)
 						YKeyframes.push_back(Keyframe<double>(-std::numeric_limits<double>::infinity(), coordinates.second, Easing::Step, -std::numeric_limits<double>::infinity()));
 					else
 						YKeyframes.push_back(Keyframe<double>(-std::numeric_limits<double>::infinity(), 1, Easing::Step, -std::numeric_limits<double>::infinity()));
 				else
-					generateKeyframes<double, double>(YKeyframes, applicableEventsY, nop<double>());
+					generateKeyframes<double, double>(YKeyframes, applicableEventsY, activations, nop<double>());
 			}
 			return std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>(XKeyframes, YKeyframes);
 		}
@@ -703,33 +746,84 @@ namespace sb
 		{
 			auto ev = std::vector<std::unique_ptr<Event<Colour>>>();
 			for (const auto& e : applicableEvents)
-			{
 				ev.push_back(std::make_unique<Event<Colour>>(*dynamic_cast<Event<Colour>*>(e->copy().get())));
-			}
-			generateKeyframes<Colour, Colour>(keyframes, ev, nop<Colour>());
+			generateKeyframes<Colour, Colour>(keyframes, ev, activations, nop<Colour>());
 			return keyframes;
 		}
 		else if constexpr (T == EventType::P)
 		{
 			auto ev = std::vector<std::unique_ptr<Event<ParameterType>>>();
 			for (const auto& e : applicableEvents)
-			{
 				ev.push_back(std::make_unique<Event<ParameterType>>(*dynamic_cast<Event<ParameterType>*>(e->copy().get())));
-			}
-			generateParameterKeyframes(keyframes, ev);
+			generateKeyframes<bool, ParameterType>(keyframes, ev, activations, nop<ParameterType>());
 			return keyframes;
 		}
 		else
 		{
 			auto ev = std::vector<std::unique_ptr<Event<double>>>();
 			for (const auto& e : applicableEvents)
-			{
 				ev.push_back(std::make_unique<Event<double>>(*dynamic_cast<Event<double>*>(e->copy().get())));
-			}
-			generateKeyframes<double, double>(keyframes, ev, nop<double>());
+			generateKeyframes<double, double>(keyframes, ev, activations, nop<double>());
 			return keyframes;
 		}
 	}
+
+	// https://osu.ppy.sh/wiki/en/osu%21_File_Formats/Osu_%28file_format%29#hitsounds
+	// https://osu.ppy.sh/wiki/en/Storyboard_Scripting/Compound_Commands
+	class HitSound
+	{
+	public:
+		HitSound() {}
+		HitSound(int normalSet, int additionSet, int additionFlag, int index)
+			:
+			normalSet(normalSet),
+			additionSet(additionSet),
+			additionFlag(additionFlag),
+			index(index)
+		{}
+		HitSound(const std::string& triggerType)
+		{
+			int p = 8;
+			if (triggerType.find("All", p) == p) { p += 3; normalSet = -1; }
+			else if (triggerType.find("Normal", p) == p) { p += 6; normalSet = 1; }
+			else if (triggerType.find("Soft", p) == p) { p += 4; normalSet = 2; }
+			else if (triggerType.find("Drum", p) == p) { p += 4; normalSet = 3; }
+			else normalSet = -1;
+
+			if (triggerType.find("All", p) == p) { p += 3; additionSet = -1; }
+			else if (triggerType.find("Normal", p) == p) { p += 6; additionSet = 1; }
+			else if (triggerType.find("Soft", p) == p) { p += 4; additionSet = 2; }
+			else if (triggerType.find("Drum", p) == p) { p += 4; additionSet = 3; }
+			else additionSet = -1;
+
+			if (triggerType.find("Whistle", p) == p) { p += 7; additionFlag = 2; }
+			else if (triggerType.find("Finish", p) == p) { p += 6; additionFlag = 4; }
+			else if (triggerType.find("Clap", p) == p) { p += 4; additionFlag = 8; }
+			else additionFlag = -1;
+
+			index = triggerType.size() > p ? std::stoi(triggerType.substr(p)) : -1;
+		}
+		bool operator==(const HitSound& other) const
+		{
+			return (other.normalSet == -1 ? true : normalSet == other.normalSet)
+				&& (other.additionSet == -1 ? true : additionSet == other.additionSet)
+				&& (other.additionFlag == -1 ? true :
+					(additionFlag & 2) >> 1 && (other.additionFlag & 2) >> 1
+					|| (additionFlag & 4) >> 2 && (other.additionFlag & 4) >> 2
+					|| (additionFlag & 8) >> 3 && (other.additionFlag & 8) >> 3)
+				&& (other.index == -1 ? true : index == other.index);
+		}
+		static bool IsHitSound(const std::string& triggerType)
+		{
+			return triggerType.find("HitSound") == 0;
+		}
+
+	private:
+		char normalSet = 0; // 0 - no sample set, 1 - normal, 2 - soft, 3 - drum
+		char additionSet = 0; // 0 - no sample set, 1 - normal, 2 - soft, 3 - drum
+		char additionFlag = 0; // bitflag: 0 - normal, 1 - whistle, 2 - finish, 3 - clap
+		char index = 0;
+	};
 
 	class Loop
 	{
@@ -766,7 +860,7 @@ namespace sb
 				}
 			}
 			events = std::move(expandedEvents);
-			endtime = starttime + (looplength)*loopcount;
+			endtime = starttime + looplength * loopcount;
 		}
 		std::vector<std::unique_ptr<IEvent>>& GetEvents()
 		{
@@ -811,11 +905,38 @@ namespace sb
 		{
 			events.push_back(std::move(event));
 		}
-		void Initialise()
+		void Initialise(std::vector<std::pair<double, HitSound>>& hitSounds, std::vector<std::tuple<double, double, int>>& activations, int& id)
 		{
-			// TODO
+			if (!HitSound::IsHitSound(triggerName)) return; // TODO: ignoring failing and passing state triggers for now
+			looplength = (*(events.end() - 1))->GetEndTime();
+			std::vector<double> activationTimes;
+			for (const std::pair<double, HitSound>& hitSound : hitSounds)
+				if (hitSound.first >= starttime && hitSound.first < endtime
+					&& hitSound.second == HitSound(triggerName))
+				{
+					activations.push_back(std::tuple<double, double, int>(hitSound.first, hitSound.first + looplength, groupNumber));
+					activationTimes.push_back(hitSound.first);
+					activated = true;
+				}
+			std::vector<std::unique_ptr<IEvent>> expandedEvents;
+			if (activated)
+			{
+				for (double activationTime : activationTimes)
+				{
+					for (std::unique_ptr<IEvent>& event : events)
+					{
+						std::unique_ptr<IEvent> copy = event->copy();
+						copy->SetTriggerID(id, activationTime, groupNumber);
+						copy->SetStartTime(activationTime + copy->GetStartTime());
+						copy->SetEndTime(activationTime + copy->GetEndTime());
+						expandedEvents.push_back(std::move(copy));
+					}
+					id++;
+				}
+				events = std::move(expandedEvents);
+			}
 		}
-		const std::vector<std::unique_ptr<IEvent>>& GetEvents() const
+		std::vector<std::unique_ptr<IEvent>>& GetEvents()
 		{
 			return events;
 		}
@@ -835,12 +956,18 @@ namespace sb
 		{
 			return groupNumber;
 		}
+		bool IsActivated() const
+		{
+			return activated;
+		}
 	private:
 		std::vector<std::unique_ptr<IEvent>> events;
 		std::string triggerName;
 		double starttime;
 		double endtime;
+		double looplength = 0;
 		int groupNumber;
+		bool activated = false;
 	};
 
 	class Sprite
@@ -876,28 +1003,39 @@ namespace sb
 		{
 			triggers.push_back(std::move(trigger));
 		}
-		void Initialise()
+		void Initialise(std::vector<std::pair<double, HitSound>>& hitSounds)
 		{
 			initialised = true;
 			for (Loop& loop : loops) loop.Initialise();
-			for (Trigger& trigger : triggers) trigger.Initialise();
+			std::vector<std::tuple<double, double, int>> activations;
+			int id = 1;
+			for (Trigger& trigger : triggers) trigger.Initialise(hitSounds, activations, id);
 			for (Loop& loop : loops)
 				for (std::unique_ptr<IEvent>& event : loop.GetEvents())
 					events.emplace_back(std::move(event));
-			std::sort(events.begin(), events.end(), [](const std::unique_ptr<IEvent>& a, const std::unique_ptr<IEvent>& b) { return a->GetStartTime() < b->GetStartTime(); });
+			std::stable_sort(events.begin(), events.end(), [](const std::unique_ptr<IEvent>& a, const std::unique_ptr<IEvent>& b) { return a->GetStartTime() < b->GetStartTime(); });
+			for (Trigger& trigger : triggers)
+				if (trigger.IsActivated())
+					for (std::unique_ptr<IEvent>& event : trigger.GetEvents())
+						events.emplace_back(std::move(event));
 			double endTime = std::numeric_limits<double>::min();
+			double startTime = std::numeric_limits<double>::max();
 			for (const std::unique_ptr<IEvent>& event : events)
+			{
 				endTime = std::max(endTime, event->GetEndTime());
-			activetime = std::pair<double, double>({ events.size() > 0 ? (*events.begin())->GetStartTime() : std::numeric_limits<double>::max(), endTime });
+				startTime = std::min(startTime, event->GetStartTime());
+			}
+			// TODO: check if triggers should contribute to the active time
+			activetime = std::pair<double, double>({ startTime, endTime });
 
-			positionKeyframes = generateKeyframesForEvent<EventType::M, std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>>(events, coordinates);
-			rotationKeyframes = generateKeyframesForEvent<EventType::R, std::vector<Keyframe<double>>>(events, coordinates);
-			scaleKeyframes = generateKeyframesForEvent<EventType::S, std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>>(events, coordinates);
-			colourKeyframes = generateKeyframesForEvent<EventType::C, std::vector<Keyframe<Colour>>>(events, coordinates);
-			opacityKeyframes = generateKeyframesForEvent<EventType::F, std::vector<Keyframe<double>>>(events, coordinates);
-			flipHKeyframes = generateKeyframesForEvent<EventType::P, std::vector<Keyframe<bool>>, ParameterType::FlipH>(events, coordinates);
-			flipVKeyframes = generateKeyframesForEvent<EventType::P, std::vector<Keyframe<bool>>, ParameterType::FlipV>(events, coordinates);
-			additiveKeyframes = generateKeyframesForEvent<EventType::P, std::vector<Keyframe<bool>>>(events, coordinates);
+			positionKeyframes = generateKeyframesForEvent<EventType::M, std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>>(events, coordinates, activations);
+			rotationKeyframes = generateKeyframesForEvent<EventType::R, std::vector<Keyframe<double>>>(events, coordinates, activations);
+			scaleKeyframes = generateKeyframesForEvent<EventType::S, std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>>(events, coordinates, activations);
+			colourKeyframes = generateKeyframesForEvent<EventType::C, std::vector<Keyframe<Colour>>>(events, coordinates, activations);
+			opacityKeyframes = generateKeyframesForEvent<EventType::F, std::vector<Keyframe<double>>>(events, coordinates, activations);
+			flipHKeyframes = generateKeyframesForEvent<EventType::P, std::vector<Keyframe<bool>>, ParameterType::FlipH>(events, coordinates, activations);
+			flipVKeyframes = generateKeyframesForEvent<EventType::P, std::vector<Keyframe<bool>>, ParameterType::FlipV>(events, coordinates, activations);
+			additiveKeyframes = generateKeyframesForEvent<EventType::P, std::vector<Keyframe<bool>>>(events, coordinates, activations);
 		}
 		std::pair<double, double> PositionAt(double time) const
 		{
@@ -1065,7 +1203,7 @@ namespace sb
 	class Storyboard
 	{
 	public:
-		Storyboard(const std::filesystem::path& directory, const std::filesystem::path& osb, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, Background background, Video video, const std::unordered_map<std::string, std::string>& info, std::pair<std::size_t, std::size_t> resolution, double musicVolume, double effectVolume)
+		Storyboard(const std::filesystem::path& directory, const std::filesystem::path& osb, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<std::pair<double, HitSound>>& hitSounds, Background background, Video video, const std::unordered_map<std::string, std::string>& info, std::pair<std::size_t, std::size_t> resolution, double musicVolume, double effectVolume)
 			:
 			directory(directory),
 			osb(osb),
@@ -1081,7 +1219,7 @@ namespace sb
 			this->sprites = std::move(sprites);
 			std::cout << "Initialising storyboard (" << this->sprites.size() << " sprites, " << samples.size() << " samples)" << "\n";
 			for (std::unique_ptr<Sprite>& sprite : this->sprites)
-				sprite->Initialise();
+				sprite->Initialise(hitSounds);
 			std::pair<double, double> activetime = { std::numeric_limits<int>::max(), std::numeric_limits<int>::min() };
 
 			bool backgroundIsASprite = false;
@@ -1122,6 +1260,7 @@ namespace sb
 
 			if (video.exists && !(videoOpen = videoCap.open((directory / video.filepath).generic_string()))) videoCap.release();
 
+			std::cout << "Loading images..." << std::endl;
 			for (const std::unique_ptr<Sprite>& sprite : this->sprites)
 			{
 				std::vector<std::string> filePaths = sprite->GetFilePaths();
@@ -1129,7 +1268,7 @@ namespace sb
 				{
 					if (spriteImages.find(filePath) != spriteImages.end()) continue;
 					cv::Mat image = readImageFile((directory / filePath).generic_string());
-					spriteImages.emplace(filePath, image);
+					auto ret = spriteImages.emplace(filePath, image);
 				}
 			}
 		}
@@ -1147,38 +1286,57 @@ namespace sb
 		}
 		void generateAudio(const std::string& outFile) const
 		{
+			std::unordered_map<std::string, int> sampleIndices;
+			std::vector<int> indices;
 			std::string command = "ffmpeg -y -hide_banner -v error -stats";
 			auto k = info.find("AudioFilename");
 			if (k != info.end()) command += " -i \"" + (directory / k->second).generic_string() + "\"";
 			std::vector<int> delays;
 			std::vector<double> volumes;
 			volumes.push_back((samples.size() + 1) * musicVolume);
+			indices.push_back(0);
 			auto l = info.find("AudioLeadIn");
 			if (k != info.end() && l != info.end()) delays.push_back(std::stoi(l->second));
 			else if (k != info.end()) delays.push_back(1);
 			int maxDelay = samples.size() == 0 ? 0 : std::numeric_limits<int>::lowest();
 			double maxDuration = samples.size() == 0 ? 0 : std::numeric_limits<double>::lowest();
+			int count = 1;
+			int unique = 1;
+			int totalSamples = samples.size();
 			for (const Sample& sample : samples)
 			{
-				command += " -i \"" + (directory / sample.filepath).generic_string() + "\"";
+				std::string filepath = (directory / sample.filepath).generic_string();
+				auto ret = sampleIndices.emplace(filepath, unique);
+				indices.push_back(ret.first->second);
 				int delay = (int)sample.starttime;
 				delays.push_back(delay);
 				volumes.push_back(sample.volume / 100.0 * (samples.size() + 1) * effectVolume);
 				maxDelay = std::max(maxDelay, delay);
-				maxDuration = std::max(maxDuration, getAudioDuration((directory / sample.filepath).generic_string()));
+				count++;
+				if (ret.second)
+				{
+					command += " -i \"" + filepath + "\"";
+					maxDuration = std::max(maxDuration, getAudioDuration((directory / sample.filepath).generic_string()));
+					unique++;
+					count = 0;
+				}
+				else totalSamples--;
+				std::cout << unique << "/" << totalSamples + 1 << "  \r";
 			}
+			std::cout << std::endl;
 			command += " -filter_complex ";
 			std::string filters;
 			for (int i = 0; i < delays.size(); i++)
-				filters += "[" + std::to_string(i) + ":a]volume=" + std::to_string(volumes[i]) + ",adelay=delays=" + std::to_string(delays[i]) + ":all=1[d" + std::to_string(i) + "];";
+				filters += "[" + std::to_string(indices[i]) + ":a]volume=" + std::to_string(volumes[i]) + ",adelay=delays=" + std::to_string(delays[i]) + ":all=1[d" + std::to_string(i) + "];";
 			for (int i = 0; i < delays.size(); i++)
 				filters += "[d" + std::to_string(i) + "]";
-			filters += "amix=inputs=" + std::to_string(delays.size()) + ":dropout_transition=" + std::to_string(maxDelay + maxDuration) + "[a]";
+			filters += "amix=inputs=" + std::to_string(delays.size()) + ":dropout_transition=" + std::to_string(maxDelay + (int)maxDuration) + "[a]";
 			command += "\"" + filters + "\"";
 			command += " -map [a] ";
 			command += outFile;
 			//std::cout << command << "\n";
-			system(command.c_str());
+			int ret = system(command.c_str());
+			if (ret != 0) std::cout << "Ffmpeg command failed!" << std::endl;
 		}
 		cv::Mat DrawFrame(double time)
 		{
@@ -1229,6 +1387,7 @@ namespace sb
 				quadRect.points(quad);
 
 				// flip quad if needed
+				// TODO: check if it's OR or XOR
 				bool flipH = sprite->EffectAt(time, ParameterType::FlipH) || scale.first < 0;
 				bool flipV = sprite->EffectAt(time, ParameterType::FlipV) || scale.second < 0;
 				if (flipH && flipV)
@@ -1389,15 +1548,23 @@ namespace sb
 				outputAlpha = 0;
 				return;
 			}
-			auto it = imageStart + (int)y * width + (int)x;
 
 			float dx = x - (int)x;
 			float dy = y - (int)y;
-			bool onRightEdge = (int)x == width - 1;
-			bool onLastRow = (int)y == height - 1;
-			auto right = onRightEdge ? it : it + 1;
-			auto down = onLastRow ? it : it + width;
-			auto downright = onRightEdge ? onLastRow ? it : it + width : onLastRow ? it + 1 : it + width + 1;
+
+			cv::MatConstIterator_<cv::Vec<float, 4>> it, down, right, downright;
+			it = down = right = downright = imageStart + (int)y * width + (int)x;
+
+			if (!((int)x == width - 1)) // if not on right edge
+			{
+				right++;
+				downright++;
+			}
+			if (!((int)y == height - 1)) // if not on last row
+			{
+				down += width;
+				downright += width;
+			}
 
 			// interpolate nearest neighbour
 			// cv::Vec<float, 4> sample = dx < 0.5f ? dy < 0.5f ? *it : *down : dy < 0.5f ? *right : *downright;
@@ -1505,19 +1672,40 @@ namespace sb
 	};
 
 	// written mostly in reference to the parser used in osu!lazer (https://github.com/ppy/osu/blob/master/osu.Game/Beatmaps/Formats/LegacyStoryboardDecoder.cs)
-	void parseFile(std::ifstream& file, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, Background& background, Video& video, std::unordered_map<std::string, std::string>& variables, std::unordered_map<std::string, std::string>& info, size_t& lineNumber)
+	void parseFile(std::ifstream& file, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<std::pair<double, HitSound>>& hitSounds, Background& background, Video& video, std::unordered_map<std::string, std::string>& variables, std::unordered_map<std::string, std::string>& info, size_t& lineNumber)
 	{
 		std::string line;
 		bool inLoop = false;
 		bool inTrigger = false;
 		bool hasBackground = false;
 		bool hasVideo = false;
+		struct ControlPoint
+		{
+			ControlPoint() = default;
+			ControlPoint(double time, double beatLength)
+				:
+				time(time),
+				beatLength(beatLength)
+			{}
+			double time = 0;
+			double beatLength = 0;
+			double sliderMultiplier = beatLength > 0 ? 1.0 : -(beatLength / 100.0);
+			int meter = 4;
+			int sampleSet = 0;
+			int sampleIndex = 0;
+			int volume = 100;
+			bool uninherited = 1;
+			int effects = 0;
+		};
+		std::vector<ControlPoint> controlPoints;
 		enum class Section
 		{
 			None,
 			Events,
 			Variables,
-			Info
+			Info,
+			TimingPoints,
+			HitObjects
 		};
 		Section section = Section::None;
 
@@ -1543,9 +1731,19 @@ namespace sb
 				section = Section::Variables;
 				continue;
 			}
-			else if (line.find("[General]") == 0 || line.find("[Metadata]") == 0)
+			else if (line.find("[General]") == 0 || line.find("[Metadata]") == 0 || line.find("[Difficulty]") == 0)
 			{
 				section = Section::Info;
+				continue;
+			}
+			else if (line.find("[TimingPoints]") == 0)
+			{
+				section = Section::TimingPoints;
+				continue;
+			}
+			else if (line.find("[HitObjects]") == 0)
+			{
+				section = Section::HitObjects;
 				continue;
 			}
 			else if (line[0] == '[')
@@ -1806,6 +2004,70 @@ namespace sb
 				info.emplace(key, value); // TODO: Check if this is correct behaviour
 			}
 			break;
+			case Section::TimingPoints:
+			{
+				std::vector<std::string> split = stringSplit(line, ",");
+				ControlPoint controlPoint = ControlPoint(std::stod(split[0]), std::stod(split[1]));
+				if (split.size() > 2) controlPoint.meter = std::stoi(split[2]);
+				if (split.size() > 3) controlPoint.sampleIndex = std::stoi(split[3]);
+				if (split.size() > 4) controlPoint.sampleSet = std::stoi(split[4]);
+				if (split.size() > 5) controlPoint.volume = std::stoi(split[5]);
+				if (split.size() > 6) controlPoint.uninherited = std::stoi(split[6]) == 1;
+				if (split.size() > 7) controlPoint.effects = std::stoi(split[7]);
+				controlPoints.push_back(std::move(controlPoint));
+			}
+			break;
+			case Section::HitObjects:
+			{
+				// all we care to obtain are pairs of timestamps and hitsound identifiers for resolving triggers
+				std::vector<std::string> split = stringSplit(line, ",");
+				if (split.size() > 3)
+				{
+					int type = std::stoi(split[3]);
+					if (type & 1 && split.size() > 5) // hit circle
+					{
+						int time = std::stoi(split[2]);
+						std::vector<std::string> hitSample = stringSplit(split[5], ":");
+						int normalSet = hitSample.size() > 2 ? std::stoi(hitSample[0]) : 0;
+						int additionSet = hitSample.size() > 2 ? std::stoi(hitSample[1]) : 0;
+						int additionFlag = std::stoi(split[4]);
+						int index = hitSample.size() > 2 ? std::stoi(hitSample[2]) : 0;
+						hitSounds.emplace_back(std::pair<double, HitSound>{ time, HitSound(normalSet, additionSet, additionFlag, index) });
+					}
+					if (type & 2 && split.size() > 10) // slider
+					{
+						double time = std::stod(split[2]);
+						ControlPoint currentControlPoint;
+						ControlPoint currentTimingPoint;
+						for (const ControlPoint& controlPoint : controlPoints)
+						{
+							if (controlPoint.time >= time && !controlPoint.uninherited) break;
+							if (!controlPoint.uninherited) currentControlPoint = controlPoint;
+						}
+						for (const ControlPoint& controlPoint : controlPoints)
+						{
+							if (controlPoint.time >= time && controlPoint.uninherited) break;
+							if (controlPoint.uninherited) currentTimingPoint = controlPoint;
+						}
+						int slides = std::stoi(split[6]);
+						double length = std::stod(split[7]);
+						double beatmapSliderMultiplier = std::stod(info.find("SliderMultiplier")->second);
+						double travelDuration = currentTimingPoint.beatLength * length / beatmapSliderMultiplier / 100.0 * currentControlPoint.sliderMultiplier;
+						std::vector<std::string> hitSample = stringSplit(split[10], ":");
+						std::vector<std::string> edgeSounds = stringSplit(split[8], "|");
+						std::vector<std::string> edgeSets = stringSplit(split[9], "|");
+						for (int i = 0; i < slides + 1; i++)
+						{
+							int normalSet = edgeSets.size() > i ? std::stoi(stringSplit(edgeSets[i], ":")[0]) : 0;
+							int additionSet = edgeSets.size() > i ? std::stoi(stringSplit(edgeSets[i], ":")[1]) : 0;
+							int additionFlag = edgeSounds.size() > i ? stoi(edgeSounds[i]) : 0;
+							int index = 0;
+							hitSounds.emplace_back(std::pair<double, HitSound>{ time + travelDuration * i, HitSound(normalSet, additionSet, additionFlag, index) });
+						}
+					}
+				}
+			}
+			break;
 			}
 		}
 	}
@@ -1831,6 +2093,7 @@ namespace sb
 		if (!diffFile.is_open()) throw std::exception(("Failed to open \"" + diff + "\".\n").c_str());
 		std::vector<std::unique_ptr<Sprite>> sprites;
 		std::vector<Sample> samples;
+		std::vector<std::pair<double, HitSound>> hitSounds;
 		Background background;
 		Video video;
 		std::unordered_map<std::string, std::string> variables;
@@ -1840,17 +2103,17 @@ namespace sb
 		std::size_t lineNumber = 0;
 
 		std::cout << "Parsing " << osb << "...\n";
-		parseFile(osbFile, sprites, samples, background, video, variables, info, lineNumber);
+		parseFile(osbFile, sprites, samples, hitSounds, background, video, variables, info, lineNumber);
 		osbFile.close();
 		std::cout << "Parsed " << lineNumber << " lines\n";
 
 		lineNumber = 0;
 		std::cout << "Parsing " << diff << "...\n";
-		parseFile(diffFile, sprites, samples, background, video, variables, info, lineNumber);
+		parseFile(diffFile, sprites, samples, hitSounds, background, video, variables, info, lineNumber);
 		diffFile.close();
 		std::cout << "Parsed " << lineNumber << " lines\n";
 
-		std::unique_ptr<Storyboard> sb = std::make_unique<Storyboard>(directory, osb, sprites, samples, background, video, info, resolution, musicVolume, effectVolume);
+		std::unique_ptr<Storyboard> sb = std::make_unique<Storyboard>(directory, osb, sprites, samples, hitSounds, background, video, info, resolution, musicVolume, effectVolume);
 		return sb;
 	}
 }
@@ -1869,8 +2132,10 @@ int main(int argc, char* argv[]) {
 	double audioDuration = sb->GetAudioDuration();
 	double starttime = argc <= 3 ? std::min(activetime.first, audioLeadIn) : std::stod(argv[3]);
 	double duration = argc <= 4 ? activetime.second < audioDuration + 60000 ? std::max(activetime.second, audioDuration) - starttime : audioDuration : std::stod(argv[4]);
+	std::cout << "\nGenerating audio...\n";
+	sb->generateAudio("audio.mp3");
 	std::string outputFile = "video.mp4";
-	int frameCount = (int)std::round(fps / (1000.0 / (float)duration));
+	int frameCount = (int)std::ceil(fps * duration / 1000.0);
 	std::cout << "Rendering video...\n";
 	cv::VideoWriter writer = cv::VideoWriter(
 		"export.avi",
@@ -1881,14 +2146,14 @@ int main(int argc, char* argv[]) {
 #pragma omp parallel for ordered schedule(dynamic)
 	for (int i = 0; i < frameCount; i++)
 	{
-		std::cout << i + 1 << "/" << frameCount << '\r';
 		cv::Mat frame = sb->DrawFrame(starttime + i * 1000.0 / fps);
 #pragma omp ordered
-		writer.write(frame);
+		{
+			std::cout << i + 1 << "/" << frameCount << '\r';
+			writer.write(frame);
+		}
 	}
 	writer.release();
-	std::cout << "\nGenerating audio...\n";
-	sb->generateAudio("audio.mp3");
 	std::cout << "Merging audio and video...\n";
 	std::stringstream command;
 	command << "ffmpeg -y -v error -stats -i export.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
