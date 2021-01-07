@@ -27,7 +27,6 @@ CPU usage: ~90-95%
 
 ## TODO
 
-- implement triggers
 - handle errors
 - fix all edge-cases
 - clean up dumb code
@@ -36,7 +35,7 @@ CPU usage: ~90-95%
 
 ## Compilation
 
-Releases will probably come later, for now just compile it yourself or ask me for a binary. These parts are Windows-specific.
+Releases will probably come later. For now, just compile it yourself or ask me for a binary. These parts are Windows-specific.
 
 ```
 clang .\osb2mp4.cpp -o .\osb2mp4.exe  -std=c++17 -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp
