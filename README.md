@@ -14,16 +14,16 @@ CPU usage: ~90-95%
 
 | Storyboard             | time (mm:ss) |
 |------------------------|-------------:|
-| Alexithymia            |        40:00 |
-| Double Pendulum        |        17:00 |
-| world.execute(me)      |        11:00 |
-| Asymmetry              |         5:12 |
-| new beginnings         |         2:36 |
+| [Alexithymia](https://osu.ppy.sh/beatmapsets/1054045)            |        40:00 |
+| [Double Pendulum](https://osu.ppy.sh/beatmapsets/695053)        |        17:00 |
+| [world.execute(me)](https://osu.ppy.sh/beatmapsets/470977)      |        11:00 |
+| [Asymmetry](https://osu.ppy.sh/beatmapsets/310499)              |         5:12 |
+| [new beginnings](https://osu.ppy.sh/beatmapsets/1011011)         |         2:36 |
 
 ## Dependencies
 
 - [OpenCV](https://www.opencv.org/releases) - download and extract somewhere accessible
-- A global [ffmpeg](https://ffmpeg.org/download.html) installation
+- A global [FFmpeg](https://ffmpeg.org/download.html) installation
 
 ## TODO
 
@@ -35,11 +35,13 @@ CPU usage: ~90-95%
 
 ## Compilation
 
-Releases will probably come later. For now, just compile it yourself or ask me for a binary. These parts are Windows-specific.
+Releases will probably come later. For now, just compile it yourself or ask me for a binary. On Windows, you can compile with clang (you can get it by installing [LLVM](https://releases.llvm.org/download.html)) like this:
 
 ```
-clang .\osb2mp4.cpp -o .\osb2mp4.exe  -std=c++17 -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp
+clang .\osb2mp4.cpp -std=c++17 -I .\src\ -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp -o .\osb2mp4.exe
 ```
+
+When running, make sure to have `opencv_videoio_ffmpeg451_64.dll` and `opencv_world451.dll` in the same folder as `osb2mp4.exe`.
 
 ## Running
 
@@ -48,7 +50,5 @@ osb2mp4.exe "song-folder" "diff-name" [StartTime] [Duration]
 ```
 
 `StartTime` and `Duration` are optional. The program will render the whole thing if unspecified.
-
-Make sure to have `opencv_videoio_ffmpeg451_64.dll` and `opencv_world451.dll` in the same folder as `osb2mp4.exe`.
 
 This spits out an `export.avi`, `audio.mp3` and a merged `video.mp4` file in the current working directory for now.
