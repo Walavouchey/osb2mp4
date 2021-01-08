@@ -2,7 +2,7 @@
 
 An [osu!](https://osu.ppy.sh) storyboard to video converter. Will be maintained until an alternative exists in lazer.
 
-This project has been in progress on and off since the middle of September 2020. Actual time spent working so far has probably been about 5 weeks. The  `osb2mp4.py` is what I first wrote as a proof of concept.
+This project has been in progress on and off since the middle of September 2020. Actual time spent working so far has probably been about 6 weeks.
 
 I'll expand this readme eventually. Here are some benchmarks on my computer:
 
@@ -20,11 +20,6 @@ CPU usage: ~90-95%
 | [Asymmetry](https://osu.ppy.sh/beatmapsets/310499)              |         5:12 |
 | [new beginnings](https://osu.ppy.sh/beatmapsets/1011011)         |         2:36 |
 
-## Dependencies
-
-- [OpenCV](https://www.opencv.org/releases) - download and extract somewhere accessible
-- A global [FFmpeg](https://ffmpeg.org/download.html) installation
-
 ## TODO
 
 - handle errors
@@ -32,16 +27,6 @@ CPU usage: ~90-95%
 - clean up dumb code
 - optimise for performance a bit
 - rewrite whole thing in opengl or something
-
-## Compilation
-
-Releases will probably come later. For now, just compile it yourself or ask me for a binary. On Windows, you can compile with clang (you can get it by installing [LLVM](https://releases.llvm.org/download.html)) like this:
-
-```
-clang .\osb2mp4.cpp -std=c++17 -I .\src\ -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp -o .\osb2mp4.exe
-```
-
-When running, make sure to have `opencv_videoio_ffmpeg451_64.dll` and `opencv_world451.dll` in the same folder as `osb2mp4.exe`.
 
 ## Running
 
@@ -74,3 +59,18 @@ options:
 `StartTime` and `Duration` are optional. The program will render the whole thing if unspecified.
 
 This spits out an `export.avi`, `audio.mp3` and a merged `video.mp4` file in the current working directory for now.
+
+## Dependencies
+
+- [OpenCV](https://www.opencv.org/releases) - download and extract somewhere accessible
+- A global [FFmpeg](https://ffmpeg.org/download.html) installation
+
+## Compilation
+
+On Windows, you can compile with clang (you can get it by installing [LLVM](https://releases.llvm.org/download.html)) like this:
+
+```
+clang .\osb2mp4.cpp -std=c++17 -I .\src\ -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp -o .\osb2mp4.exe
+```
+
+When running, make sure to have `opencv_videoio_ffmpeg451_64.dll` and `opencv_world451.dll` in the same folder as `osb2mp4.exe`.
