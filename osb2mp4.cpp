@@ -11,7 +11,7 @@
 
 void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options, std::string filename)
 {
-	constexpr unsigned wrapLimit = 68;
+	constexpr unsigned wrapLimit = 69;
 	constexpr unsigned tabLimit = 21;
 	std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
 	for (auto& o : options)
@@ -51,6 +51,7 @@ int main(int argc, char* argv[]) {
 	bool useStoryboardAspectRatio = false;
 	bool showFailLayer = false;
 	std::string outputFile = "video.mp4";
+	bool keepTemporaryFiles = false;
 
 	std::vector<std::string> arguments;
 	for (int i = 0; i < argc; i++)
@@ -78,12 +79,13 @@ int main(int argc, char* argv[]) {
 		opt(true, "-mv", "--music-volume", musicVolume, std::stof(arg) / 100.0f, "music volume from 0 to 100 (default: 20)", "volume"),
 		opt(true, "-ev", "--effect-volume", effectVolume, std::stof(arg) / 100.0f, "effect volume from 0 to 100, i.e. samples (default: 20)", "volume"),
 		opt(true, "-dim", "--background-dim", dim, std::stof(arg) / 100.0f, "background dim value from 0 to 100 (default: 100)", "dim"),
-		opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "if set, change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
-		opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "if set, show the fail layer instead of the pass layer", "")
+		opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
+		opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "show the fail layer instead of the pass layer", ""),
+		opt(false, "-keep", "--keep-temp-files", keepTemporaryFiles, true, "don't delete temporary files (temp.mp3 & temp.avi)", "")
 #undef opt
 	};
 
-	for (std::vector<std::string>::iterator arg = arguments.begin() + 1; arg != arguments.end(); arg++)
+	for (std::vector<std::string>::iterator arg = arguments.begin() + 1; arg < arguments.end(); arg++)
 	{
 		bool optionFound = false;
 		for (auto& option : options)
@@ -92,13 +94,14 @@ int main(int argc, char* argv[]) {
 			{
 				if (arg + 1 != arguments.end() || !std::get<0>(option))
 				{
-					try { std::get<3>(option)(*(++arg)); }
+					try { std::get<3>(option)(*(arg += (arg + 1 != arguments.end() && std::get<0>(option) ? 1 : 0))); }
 					catch (...)
 					{
 						std::cerr << *(--arg) << ": invalid argument \"" << *(++arg) << "\"\n";
 						printUsageAndExit(options, filename);
 					}
 					optionFound = true;
+					break;
 				}
 				else
 				{
@@ -148,12 +151,12 @@ int main(int argc, char* argv[]) {
 				: audioDuration));
 
 	std::cout << "\nGenerating audio...\n";
-	sb->generateAudio("audio.mp3");
+	sb->generateAudio("temp.mp3");
 
 	int frameCount = (int)std::ceil(fps * duration / 1000.0);
 	std::cout << "Rendering video...\n";
 	cv::VideoWriter writer = cv::VideoWriter(
-		"export.avi",
+		"temp.avi",
 		cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
 		fps,
 		cv::Size(resolution.first, resolution.second)
@@ -173,9 +176,15 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Merging audio and video...\n";
 	std::stringstream command;
-	command << "ffmpeg -y -v error -stats -i export.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
-		<< starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i audio.mp3 -c:v copy " << outputFile;
+	command << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
+		<< starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;
 	system(command.str().c_str());
+	if (!keepTemporaryFiles)
+	{
+		std::cout << "Deleting temporary files...\n";
+		system("rm temp.mp3");
+		system("rm temp.avi");
+	}
 
 	std::cout << "Done\n";
 	return 0;

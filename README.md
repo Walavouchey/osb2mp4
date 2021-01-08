@@ -43,17 +43,18 @@ options:
  -w, --width pixels             video width (default: 1920)
  -h, --height pixels            video height (default: 1080)
  -f, --frame-rate fps           video frame rate (default: 30)
- -mv, --music-volume volume     music volume from 0 to 100 (default:
-                                20)
+ -mv, --music-volume volume     music volume from 0 to 100 (default: 20)
  -ev, --effect-volume volume    effect volume from 0 to 100, i.e.
                                 samples (default: 20)
  -dim, --background-dim dim     background dim value from 0 to 100
                                 (default: 100)
- -ar, --respect-aspect-ratio    if set, change to 4:3 aspect ratio if
-                                WidescreenStoryboard is
-                                disabled in the difficulty file
- -fail, --show-fail-layer       if set, show the fail layer instead of
-                                the pass layer
+ -ar, --respect-aspect-ratio    change to 4:3 aspect ratio if
+                                WidescreenStoryboard is disabled in
+                                the difficulty file
+ -fail, --show-fail-layer       show the fail layer instead of the pass
+                                layer
+ -keep, --keep-temp-files       don't delete temporary files (temp.mp3 &
+                                temp.avi)
 ```
 
 `StartTime` and `Duration` are optional. The program will render the whole thing if unspecified.
