@@ -57,10 +57,6 @@ options:
                                 temp.avi)
 ```
 
-`StartTime` and `Duration` are optional. The program will render the whole thing if unspecified.
-
-This spits out an `export.avi`, `audio.mp3` and a merged `video.mp4` file in the current working directory for now.
-
 ## Dependencies
 
 - [OpenCV](https://www.opencv.org/releases) - download and extract somewhere accessible
