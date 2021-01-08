@@ -40,9 +40,22 @@ namespace sb
 			}
 			if (osb.empty())
 			{
-				throw std::exception("No .osb file found.\n");
+				throw std::exception("No .osb file found");
 			}
-			ParseStoryboard(directory, osb, diff, sprites, samples, hitSounds, background, video, info);
+			if (this->diff.empty())
+				for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory))
+				{
+					if (entry.path().extension() == ".osu")
+					{
+						this->diff = entry.path().filename().string();
+						break;
+					}
+				}
+			if (this->diff.empty())
+			{
+				throw std::exception("No difficulty file found");
+			}
+			ParseStoryboard(directory, osb, this->diff, sprites, samples, hitSounds, background, video, info);
 
 			auto wdsb = info.find("WidescreenStoryboard");
 			bool widescreenStoryboard = wdsb != info.end() && std::stoi(wdsb->second) != 0;

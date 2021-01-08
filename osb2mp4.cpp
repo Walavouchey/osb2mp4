@@ -4,39 +4,152 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
+#include <string>
+#include <functional>
+#include <optional>
+
+void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options, std::string filename)
+{
+	constexpr unsigned wrapLimit = 68;
+	constexpr unsigned tabLimit = 21;
+	std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
+	for (auto& o : options)
+	{
+		std::string optionsString = " " + std::get<1>(o) + ", " + std::get<2>(o) + " ";
+		std::string optionString = optionsString
+			+ (std::get<0>(o) ? std::get<5>(o) + "\t" : "\t")
+			+ (optionsString.size() >= tabLimit ? "" : "\t")
+			+ std::get<4>(o) + "\n";
+		int size = optionString.size();
+		int end = wrapLimit;
+		while (size > wrapLimit)
+		{
+			int pos = optionString.rfind(" ", end) + 1;
+			size -= pos - 33;
+			end += 33;
+			optionString.insert(pos, "\n\t\t\t\t");
+		}
+		std::cerr << optionString;
+	}
+	exit(1);
+}
 
 int main(int argc, char* argv[]) {
-	if (argc <= 2) std::cout << "Specify directory, diff name and optionally start time and duration in milliseconds\n";
-	std::string directory = argv[1];
-	std::string diff = argv[2];
+	std::string filename = std::string(argv[0]);
+	std::string directory;
+	std::string diff;
+	std::optional<double> _starttime;
+	std::optional<double> _endtime;
+	std::optional<double> _duration;
 	int frameWidth = 1920;
 	int frameHeight = 1080;
-	int fps = 30;
+	float fps = 30;
 	float musicVolume = 0.2f;
 	float effectVolume = 0.2f;
 	float dim = 1.0f;
-	bool useStoryboardAspectRatio = true;
+	bool useStoryboardAspectRatio = false;
 	bool showFailLayer = false;
+	std::string outputFile = "video.mp4";
 
-	std::unique_ptr<sb::Storyboard> sb = std::make_unique<sb::Storyboard>(
-		directory, diff, std::pair<unsigned, unsigned>(frameWidth, frameHeight),
-		musicVolume, effectVolume, dim, useStoryboardAspectRatio, showFailLayer);
+	std::vector<std::string> arguments;
+	for (int i = 0; i < argc; i++)
+		arguments.push_back(std::string(argv[i]));
+
+	std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options
+	{
+#define opt(requiresArgument, option, alias, var, assign, explanation, placeholder) \
+			std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>( \
+				requiresArgument, \
+				std::string(option), \
+				std::string(alias), \
+				std::function([&var](std::string& arg) { var = assign; }), \
+				std::string(explanation), \
+				std::string(placeholder) \
+			)
+		opt(true, "-s", "--start-time", _starttime, std::stod(arg), "start time in ms (default: automatic)", "time"),
+		opt(true, "-e", "--end-time", _endtime, std::stod(arg), "end time in ms (default: automatic)", "time"),
+		opt(true, "-d", "--duration", _duration, std::stod(arg), "duration in ms (default: automatic)", "time"),
+		opt(true, "-o", "--output", outputFile, arg, "output video name (default: video.mp4)", "time"),
+		opt(true, "-diff", "--difficulty", diff, arg, "difficulty file name (default: first found)", "filename"),
+		opt(true, "-w", "--width", frameWidth, std::stoi(arg), "video width (default: 1920)", "pixels"),
+		opt(true, "-h", "--height", frameHeight, std::stoi(arg), "video height (default: 1080)", "pixels"),
+		opt(true, "-f", "--frame-rate", fps, std::stof(arg), "video frame rate (default: 30)", "fps"),
+		opt(true, "-mv", "--music-volume", musicVolume, std::stof(arg) / 100.0f, "music volume from 0 to 100 (default: 20)", "volume"),
+		opt(true, "-ev", "--effect-volume", effectVolume, std::stof(arg) / 100.0f, "effect volume from 0 to 100, i.e. samples (default: 20)", "volume"),
+		opt(true, "-dim", "--background-dim", dim, std::stof(arg) / 100.0f, "background dim value from 0 to 100 (default: 100)", "dim"),
+		opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "if set, change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
+		opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "if set, show the fail layer instead of the pass layer", "")
+#undef opt
+	};
+
+	for (std::vector<std::string>::iterator arg = arguments.begin() + 1; arg != arguments.end(); arg++)
+	{
+		bool optionFound = false;
+		for (auto& option : options)
+		{
+			if (*arg == std::get<1>(option) || *arg == std::get<2>(option))
+			{
+				if (arg + 1 != arguments.end() || !std::get<0>(option))
+				{
+					try { std::get<3>(option)(*(++arg)); }
+					catch (...)
+					{
+						std::cerr << *(--arg) << ": invalid argument \"" << *(++arg) << "\"\n";
+						printUsageAndExit(options, filename);
+					}
+					optionFound = true;
+				}
+				else
+				{
+					std::cerr << "Option \"" << *arg << "\" requires an argument!\n";
+					printUsageAndExit(options, filename);
+				};
+			}
+		}
+		if (!optionFound && !directory.empty())
+		{
+			std::cerr << "Unrecognised option: " << *arg << std::endl;
+			printUsageAndExit(options, filename);
+		}
+		if (!optionFound && directory.empty()) directory = *arg;
+	}
+	if (directory.empty())
+	{
+		std::cerr << "No song folder specified!\n";
+		printUsageAndExit(options, filename);
+	}
+
+	std::unique_ptr<sb::Storyboard> sb;
+
+	try
+	{
+		sb = std::make_unique<sb::Storyboard>(
+			directory, diff, std::pair<unsigned, unsigned>(frameWidth, frameHeight),
+			musicVolume, effectVolume, dim, useStoryboardAspectRatio, showFailLayer);
+	}
+	catch (std::exception e)
+	{
+		std::cerr << e.what() << std::endl;
+		exit(1);
+	}
 
 	std::pair<double, double> activetime = sb->GetActiveTime();
 	std::pair<unsigned, unsigned> resolution = sb->GetResolution();
 	double audioLeadIn = sb->GetAudioLeadIn();
 	double audioDuration = sb->GetAudioDuration();
-	double starttime = argc <= 3 ? std::min(activetime.first, audioLeadIn) : std::stod(argv[3]);
-	double duration = argc <= 4 ?
-		(activetime.second < audioDuration + 60000 ?
-			std::max(activetime.second, audioDuration) - starttime
-			: audioDuration)
-		: std::stod(argv[4]);
+	double starttime = _starttime.value_or(std::min(activetime.first, audioLeadIn));
+	double duration = _duration.has_value() ?
+		_duration.value()
+		: (_endtime.has_value() ?
+			_endtime.value() - starttime
+			: (activetime.second < audioDuration + 60000 ?
+				std::max(activetime.second, audioDuration) - starttime
+				: audioDuration));
 
 	std::cout << "\nGenerating audio...\n";
 	sb->generateAudio("audio.mp3");
 
-	std::string outputFile = "video.mp4";
 	int frameCount = (int)std::ceil(fps * duration / 1000.0);
 	std::cout << "Rendering video...\n";
 	cv::VideoWriter writer = cv::VideoWriter(
