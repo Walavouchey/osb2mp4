@@ -62,11 +62,11 @@ int main(int argc, char* argv[]) {
 #define opt(requiresArgument, option, alias, var, assign, explanation, placeholder) \
 			std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>( \
 				requiresArgument, \
-				std::string(option), \
-				std::string(alias), \
+				option, \
+				alias, \
 				std::function([&var](std::string& arg) { var = assign; }), \
-				std::string(explanation), \
-				std::string(placeholder) \
+				explanation, \
+				placeholder \
 			)
 		opt(true, "-s", "--start-time", _starttime, std::stod(arg), "start time in ms (default: automatic)", "time"),
 		opt(true, "-e", "--end-time", _endtime, std::stod(arg), "end time in ms (default: automatic)", "time"),
