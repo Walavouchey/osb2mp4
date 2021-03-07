@@ -47,7 +47,7 @@ options:
  -ev, --effect-volume volume    effect volume from 0 to 100, i.e.
                                 samples (default: 20)
  -dim, --background-dim dim     background dim value from 0 to 100
-                                (default: 100)
+                                (default: 0)
  -ar, --respect-aspect-ratio    change to 4:3 aspect ratio if
                                 WidescreenStoryboard is disabled in
                                 the difficulty file
@@ -55,6 +55,9 @@ options:
                                 layer
  -keep, --keep-temp-files       don't delete temporary files (temp.mp3 &
                                 temp.avi)
+ -z, --zoom factor              zoom factor to use when rendering, useful for
+                                checking out-of-bounds sprites
+                                (default: 1)
 ```
 
 ## Dependencies
