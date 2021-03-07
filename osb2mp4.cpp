@@ -52,6 +52,7 @@ int main(int argc, char* argv[]) {
 	bool showFailLayer = false;
 	std::string outputFile = "video.mp4";
 	bool keepTemporaryFiles = false;
+    float zoom = 1;
 
 	std::vector<std::string> arguments;
 	for (int i = 0; i < argc; i++)
@@ -78,10 +79,11 @@ int main(int argc, char* argv[]) {
 		opt(true, "-f", "--frame-rate", fps, std::stof(arg), "video frame rate (default: 30)", "fps"),
 		opt(true, "-mv", "--music-volume", musicVolume, std::stof(arg) / 100.0f, "music volume from 0 to 100 (default: 20)", "volume"),
 		opt(true, "-ev", "--effect-volume", effectVolume, std::stof(arg) / 100.0f, "effect volume from 0 to 100, i.e. samples (default: 20)", "volume"),
-		opt(true, "-dim", "--background-dim", dim, std::stof(arg) / 100.0f, "background dim value from 0 to 100 (default: 100)", "dim"),
+		opt(true, "-dim", "--background-dim", dim, 1 - std::stof(arg) / 100.0f, "background dim value from 0 to 100 (default: 0)", "dim"),
 		opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
 		opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "show the fail layer instead of the pass layer", ""),
-		opt(false, "-keep", "--keep-temp-files", keepTemporaryFiles, true, "don't delete temporary files (temp.mp3 & temp.avi)", "")
+		opt(false, "-keep", "--keep-temp-files", keepTemporaryFiles, true, "don't delete temporary files (temp.mp3 & temp.avi)", ""),
+		opt(true, "-z", "--zoom", zoom, std::stof(arg), "zoom factor to use when rendering, useful for checking out-of-bounds sprites (default: 1)", "factor")
 #undef opt
 	};
 
@@ -129,7 +131,7 @@ int main(int argc, char* argv[]) {
 	{
 		sb = std::make_unique<sb::Storyboard>(
 			directory, diff, std::pair<unsigned, unsigned>(frameWidth, frameHeight),
-			musicVolume, effectVolume, dim, useStoryboardAspectRatio, showFailLayer);
+			musicVolume, effectVolume, dim, useStoryboardAspectRatio, showFailLayer, zoom);
 	}
 	catch (std::exception e)
 	{
@@ -146,11 +148,9 @@ int main(int argc, char* argv[]) {
 		_duration.value()
 		: (_endtime.has_value() ?
 			_endtime.value() - starttime
-			: (activetime.second < audioDuration + 60000 ?
-				std::max(activetime.second, audioDuration) - starttime
-				: audioDuration));
-
-	std::cout << "\nGenerating audio...\n";
+			: std::max(activetime.second, audioDuration) - starttime);
+    
+	std::cout << "Generating audio...\n";
 	sb->generateAudio("temp.mp3");
 
 	int frameCount = (int)std::ceil(fps * duration / 1000.0);
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
 	}
 	writer.release();
 
-	std::cout << "Merging audio and video...\n";
+	std::cout << "\nMerging audio and video...\n";
 	std::stringstream command;
 	command << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
 		<< starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;

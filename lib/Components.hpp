@@ -213,12 +213,22 @@ namespace sb
 				});
 			double endTime = std::numeric_limits<double>::min();
 			double startTime = std::numeric_limits<double>::max();
+			double visibleStartTime = std::numeric_limits<double>::min();
+			double visibleEndTime = std::numeric_limits<double>::max();
+            bool hasFadeEvents = false;
 			for (const std::unique_ptr<IEvent>& event : events)
 			{
 				endTime = std::max(endTime, event->GetEndTime());
 				startTime = std::min(startTime, event->GetStartTime());
+                if (event->GetType() == EventType::F)
+                {
+                    hasFadeEvents = true;
+                    visibleEndTime = event->GetEndTime();
+                    visibleStartTime = event->GetStartTime();
+                }
 			}
 			activetime = std::pair<double, double>({ startTime, endTime });
+			visibletime = hasFadeEvents ? std::pair<double, double>({ visibleStartTime, visibleEndTime }) : activetime;
 
 			positionKeyframes = generateKeyframesForEvent<EventType::M, std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>>(events, coordinates, activations);
 			rotationKeyframes = generateKeyframesForEvent<EventType::R, std::vector<Keyframe<double>>>(events, coordinates, activations);
@@ -277,10 +287,15 @@ namespace sb
 		{
 			return activetime;
 		}
+		const std::pair<double, double>& GetVisibleTime() const
+		{
+			return visibletime;
+		}
 	protected:
 		std::vector<Loop> loops;
 		std::vector<Trigger> triggers;
 		std::pair<double, double> activetime;
+		std::pair<double, double> visibletime;
 		const std::string filepath;
 	private:
 		std::vector<std::unique_ptr<IEvent>> events;

@@ -18,7 +18,7 @@ namespace sb
 	class Storyboard
 	{
 	public:
-		Storyboard(const std::filesystem::path& directory, const std::string& diff, std::pair<unsigned, unsigned> resolution, float musicVolume, float effectVolume, float dim, bool useStoryboardAspectRatio, bool showFailLayer)
+		Storyboard(const std::filesystem::path& directory, const std::string& diff, std::pair<unsigned, unsigned> resolution, float musicVolume, float effectVolume, float dim, bool useStoryboardAspectRatio, bool showFailLayer, float zoom = 1)
 			:
 			directory(directory),
 			diff(diff),
@@ -28,7 +28,8 @@ namespace sb
 			dim(dim),
 			showFailLayer(showFailLayer),
 			frameScale(resolution.second / 480.0),
-			xOffset((resolution.first - resolution.second / 3.0 * 4) * 0.5)
+			xOffset((resolution.first - resolution.second / 3.0 * 4) * 0.5),
+            zoom(zoom)
 		{
 			for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory))
 			{
@@ -71,7 +72,7 @@ namespace sb
 			bool backgroundIsASprite = false;
 			for (const std::unique_ptr<Sprite>& sprite : this->sprites)
 			{
-				std::pair<double, double> at = sprite->GetActiveTime();
+				std::pair<double, double> at = sprite->GetVisibleTime();
 				activetime.first = std::min(activetime.first, at.first);
 				activetime.second = std::max(activetime.second, at.second);
 				if (background.exists)
@@ -315,6 +316,13 @@ namespace sb
 			{
 				ContourX.push_back({ std::numeric_limits<int>::max(), std::numeric_limits<int>::min() });
 			}
+            
+            for (int i = 0; i < 4; i++)
+            {
+                quad[i] -= cv::Point2f(resolution.first * 0.5f, resolution.second * 0.5f);
+                quad[i] *= zoom;
+                quad[i] += cv::Point2f(resolution.first * 0.5f, resolution.second * 0.5f);
+            }
 
 			ScanLine(quad[0].x, quad[0].y, quad[1].x, quad[1].y, ContourX);
 			ScanLine(quad[1].x, quad[1].y, quad[2].x, quad[2].y, ContourX);
@@ -527,5 +535,6 @@ namespace sb
 		double lastFrame;
 		double frameScale;
 		double xOffset;
+        float zoom;
 	};
 }
