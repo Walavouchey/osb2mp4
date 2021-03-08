@@ -68,7 +68,8 @@ namespace sb
     {
         int depth = image.depth();
         cv::Mat converted;
-        cv::cvtColor(image, converted, cv::COLOR_BGR2BGRA);
+        if (image.empty()) image = cv::Mat::zeros(1, 1, CV_8UC4);
+        else cv::cvtColor(image, converted, cv::COLOR_BGR2BGRA);
         double scale = depth == CV_16U ? 1.0 / 257 : 1;
         converted.convertTo(image, CV_32F, scale);
         return image;
