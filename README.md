@@ -70,7 +70,7 @@ options:
 On Windows, you can compile with clang (you can get it by installing [LLVM](https://releases.llvm.org/download.html)) like this:
 
 ```
-clang .\osb2mp4.cpp -std=c++17 -I .\src\ -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp -o .\osb2mp4.exe
+clang .\osb2mp4.cpp -std=c++17 -I .\lib\ -I C:\path\to\opencv\build\include\ -L C:\path\to\opencv\build\x64\vc15\lib\ -l opencv_world451 -O3 -fopenmp -o .\osb2mp4.exe
 ```
 
 When running, make sure to have `opencv_videoio_ffmpeg451_64.dll` and `opencv_world451.dll` in the same folder as `osb2mp4.exe`.
