@@ -9,6 +9,7 @@
 #include <utility>
 #include <memory>
 #include <algorithm>
+#include <optional>
 
 namespace sb
 {
@@ -211,24 +212,36 @@ namespace sb
                 int bID = b->GetTriggerID();
                 return aID != 0 && bID != 0 && aID != bID ? aID < bID : aT < bT;
                 });
+
             double endTime = std::numeric_limits<double>::min();
             double startTime = std::numeric_limits<double>::max();
-            double visibleStartTime = std::numeric_limits<double>::min();
-            double visibleEndTime = std::numeric_limits<double>::max();
-            bool hasFadeEvents = false;
             for (const std::unique_ptr<IEvent>& event : events)
             {
                 endTime = std::max(endTime, event->GetEndTime());
                 startTime = std::min(startTime, event->GetStartTime());
-                if (event->GetType() == EventType::F)
-                {
-                    hasFadeEvents = true;
-                    visibleEndTime = event->GetEndTime();
-                    visibleStartTime = event->GetStartTime();
-                }
             }
             activetime = std::pair<double, double>({ startTime, endTime });
-            visibletime = hasFadeEvents ? std::pair<double, double>({ visibleStartTime, visibleEndTime }) : activetime;
+
+            std::optional<double> visibleEndTime;
+            std::optional<double> visibleStartTime;
+            for (auto it = events.begin(); it != events.end(); it++)
+                if ((*it)->GetType() == EventType::F)
+                {
+                    if (dynamic_cast<Event<double>*>((*it).get())->GetStartValue() == 0)
+                        visibleStartTime = (*it)->GetStartTime();
+                    break;
+                }
+            for (auto it = events.rbegin(); it != events.rend(); it++)
+                if ((*it)->GetType() == EventType::F)
+                {
+                    if (dynamic_cast<Event<double>*>((*it).get())->GetEndValue() == 0)
+                        visibleEndTime = (*it)->GetEndTime();
+                    break;
+                }
+            visibletime = std::pair<double, double>({
+                visibleStartTime.value_or(startTime),
+                visibleEndTime.value_or(endTime)
+                });
 
             positionKeyframes = generateKeyframesForEvent<EventType::M, std::pair<std::vector<Keyframe<double>>, std::vector<Keyframe<double>>>>(events, coordinates, activations);
             rotationKeyframes = generateKeyframesForEvent<EventType::R, std::vector<Keyframe<double>>>(events, coordinates, activations);
