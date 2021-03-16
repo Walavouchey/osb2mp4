@@ -18,6 +18,14 @@ namespace sb
     // written mostly in reference to the parser used in osu!lazer (https://github.com/ppy/osu/blob/master/osu.Game/Beatmaps/Formats/LegacyStoryboardDecoder.cs)
     void parseFile(std::ifstream& file, size_t& lineNumber, std::unordered_map<std::string, std::string>& variables, std::vector<std::unique_ptr<Sprite>>& sprites, std::vector<Sample>& samples, std::vector<std::pair<double, HitSound>>& hitSounds, Background& background, Video& video, std::unordered_map<std::string, std::string>& info)
     {
+        // check for utf-8 bom, which is present when exported through storybrew
+        char buf[4];
+        for (int i = 0; i < 3; i++)
+            buf[i] = (file.seekg(i), file.peek());
+        buf[3] = '\0';
+        if (std::string(buf) == "\xEF\xBB\xBF") file.seekg(3);
+        else file.seekg(0);
+
         std::string line;
         bool inLoop = false;
         bool inTrigger = false;
@@ -60,7 +68,7 @@ namespace sb
             char lineTemp[lineMaxReadLength];
             file.getline(lineTemp, lineMaxReadLength);
             line = std::string(lineTemp);
-
+            
             if (line.length() == 0) continue;
             if (line.rfind("//", 0) == 0) continue;
 
