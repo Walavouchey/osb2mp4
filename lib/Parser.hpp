@@ -342,7 +342,7 @@ namespace sb
                 if (splitPos == std::string::npos || splitPos == line.length() - 1) continue;
                 std::string key = line.substr(0, splitPos);
                 std::string value = line.substr(splitPos + 1, line.length() - splitPos - 1);
-                variables.emplace(key, value); // doesn't overwrite previous values TODO: Check if this is correct behaviour
+                variables.emplace(key, value); // TODO: Error if already exists
             }
             break;
 
@@ -353,7 +353,7 @@ namespace sb
                 std::string key = line.substr(0, splitPos);
                 std::string value = line.substr(splitPos + 1, line.length() - splitPos - 1);
                 while (std::isspace(value[0])) value.erase(0, 1);
-                info.emplace(key, value); // TODO: Check if this is correct behaviour
+                info.insert_or_assign(key, value);
             }
             break;
             case Section::TimingPoints:
