@@ -63,14 +63,13 @@ namespace sb
             if (useStoryboardAspectRatio && !widescreenStoryboard)
                 this->resolution = std::pair<unsigned, unsigned>(resolution.second / 3.0f * 4, resolution.second);
 
-            this->sprites = std::move(sprites);
-            std::cout << "Initialising storyboard (" << this->sprites.size() << " sprites, " << samples.size() << " samples)" << "\n";
-            for (std::unique_ptr<Sprite>& sprite : this->sprites)
+            std::cout << "Initialising storyboard (" << sprites.size() << " sprites, " << samples.size() << " samples)" << "\n";
+            for (std::unique_ptr<Sprite>& sprite : sprites)
                 sprite->Initialise(hitSounds);
             std::pair<double, double> activetime = { std::numeric_limits<int>::max(), std::numeric_limits<int>::min() };
 
             bool backgroundIsASprite = false;
-            for (const std::unique_ptr<Sprite>& sprite : this->sprites)
+            for (const std::unique_ptr<Sprite>& sprite : sprites)
             {
                 std::pair<double, double> at = sprite->GetVisibleTime();
                 activetime.first = std::min(activetime.first, at.first);
@@ -85,7 +84,7 @@ namespace sb
             auto l = info.find("AudioLeadIn");
             if (k != info.end() && l != info.end()) this->audioLeadIn = std::stoi(l->second);
             else this->audioLeadIn = 0;
-            std::cout << "Initialised " << this->sprites.size() << " sprites/animations\n";
+            std::cout << "Initialised " << sprites.size() << " sprites/animations\n";
 
             blankImage = cv::Mat::zeros(this->resolution.second, this->resolution.first, CV_8UC3);
             backgroundImage = cv::Mat::zeros(this->resolution.second, this->resolution.first, CV_8UC3);
@@ -108,7 +107,7 @@ namespace sb
             if (video.exists && !(videoOpen = videoCap.open((directory / video.filepath).generic_string()))) videoCap.release();
 
             std::cout << "Loading images..." << std::endl;
-            for (const std::unique_ptr<Sprite>& sprite : this->sprites)
+            for (const std::unique_ptr<Sprite>& sprite : sprites)
             {
                 std::vector<std::string> filePaths = sprite->GetFilePaths();
                 for (std::string filePath : filePaths)
