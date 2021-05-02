@@ -352,7 +352,7 @@ namespace sb
                 if (splitPos == std::string::npos || splitPos == line.length() - 1) continue;
                 std::string key = line.substr(0, splitPos);
                 std::string value = line.substr(splitPos + 1, line.length() - splitPos - 1);
-                while (std::isspace(value[0])) value.erase(0, 1);
+                while (std::isspace(static_cast<unsigned char>(value[0]))) value.erase(0, 1);
                 info.insert_or_assign(key, value);
             }
             break;
