@@ -11,7 +11,7 @@
 
 void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options, std::string filename)
 {
-    constexpr unsigned wrapLimit = 69;
+    constexpr unsigned wrapLimit = 80;
     constexpr unsigned tabLimit = 21;
     std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
     for (auto& o : options)
@@ -45,8 +45,9 @@ int main(int argc, char* argv[]) {
     int frameWidth = 1920;
     int frameHeight = 1080;
     float fps = 30;
-    float musicVolume = 0.2f;
-    float effectVolume = 0.2f;
+    float volume = 1.0f;
+    float musicVolume = 1.0f;
+    float effectVolume = 1.0f;
     float dim = 1.0f;
     bool useStoryboardAspectRatio = false;
     bool showFailLayer = false;
@@ -77,8 +78,9 @@ int main(int argc, char* argv[]) {
         opt(true, "-w", "--width", frameWidth, std::stoi(arg), "video width (default: 1920)", "pixels"),
         opt(true, "-h", "--height", frameHeight, std::stoi(arg), "video height (default: 1080)", "pixels"),
         opt(true, "-f", "--frame-rate", fps, std::stof(arg), "video frame rate (default: 30)", "fps"),
-        opt(true, "-mv", "--music-volume", musicVolume, std::stof(arg) / 100.0f, "music volume from 0 to 100 (default: 20)", "volume"),
-        opt(true, "-ev", "--effect-volume", effectVolume, std::stof(arg) / 100.0f, "effect volume from 0 to 100, i.e. samples (default: 20)", "volume"),
+        opt(true, "-v", "--volume", volume, std::stof(arg) / 100.0f, "overall volume from 0 to 100 (default: 100)", "volume"),
+        opt(true, "-mv", "--music-volume", musicVolume, std::stof(arg) / 100.0f, "music volume from 0 to 100 (default: 100)", "volume"),
+        opt(true, "-ev", "--effect-volume", effectVolume, std::stof(arg) / 100.0f, "effect volume from 0 to 100, i.e. samples (default: 100)", "volume"),
         opt(true, "-dim", "--background-dim", dim, 1 - std::stof(arg) / 100.0f, "background dim value from 0 to 100 (default: 0)", "dim"),
         opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
         opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "show the fail layer instead of the pass layer", ""),
@@ -131,7 +133,7 @@ int main(int argc, char* argv[]) {
     {
         sb = std::make_unique<sb::Storyboard>(
             directory, diff, std::pair<unsigned, unsigned>(frameWidth, frameHeight),
-            musicVolume, effectVolume, dim, useStoryboardAspectRatio, showFailLayer, zoom);
+            musicVolume * volume, effectVolume * volume, dim, useStoryboardAspectRatio, showFailLayer, zoom);
     }
     catch (std::exception e)
     {

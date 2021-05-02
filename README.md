@@ -38,26 +38,21 @@ options:
  -e, --end-time time            end time in ms (default: automatic)
  -d, --duration time            duration in ms (default: automatic)
  -o, --output time              output video name (default: video.mp4)
- -diff, --difficulty filename   difficulty file name (default: first
-                                found)
+ -diff, --difficulty filename   difficulty file name (default: first found)
  -w, --width pixels             video width (default: 1920)
  -h, --height pixels            video height (default: 1080)
  -f, --frame-rate fps           video frame rate (default: 30)
- -mv, --music-volume volume     music volume from 0 to 100 (default: 20)
- -ev, --effect-volume volume    effect volume from 0 to 100, i.e.
-                                samples (default: 20)
- -dim, --background-dim dim     background dim value from 0 to 100
-                                (default: 0)
- -ar, --respect-aspect-ratio    change to 4:3 aspect ratio if
-                                WidescreenStoryboard is disabled in
-                                the difficulty file
- -fail, --show-fail-layer       show the fail layer instead of the pass
-                                layer
- -keep, --keep-temp-files       don't delete temporary files (temp.mp3 &
-                                temp.avi)
- -z, --zoom factor              zoom factor to use when rendering, useful for
-                                checking out-of-bounds sprites
-                                (default: 1)
+ -v, --volume volume            overall volume from 0 to 100 (default: 100)
+ -mv, --music-volume volume     music volume from 0 to 100 (default: 100)
+ -ev, --effect-volume volume    effect volume from 0 to 100, i.e. samples (default:
+                                100)
+ -dim, --background-dim dim     background dim value from 0 to 100 (default: 0)
+ -ar, --respect-aspect-ratio    change to 4:3 aspect ratio if WidescreenStoryboard
+                                is disabled in the difficulty file
+ -fail, --show-fail-layer       show the fail layer instead of the pass layer
+ -keep, --keep-temp-files       don't delete temporary files (temp.mp3 & temp.avi)
+ -z, --zoom factor              zoom factor to use when rendering, useful for checking
+                                out-of-bounds sprites (default: 1)
 ```
 
 ## Dependencies
