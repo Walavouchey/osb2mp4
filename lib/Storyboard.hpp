@@ -58,6 +58,10 @@ namespace sb
             }
             ParseStoryboard(directory, osb, this->diff, sprites, samples, hitSounds, background, video, info);
 
+            std::stable_sort(sprites.begin(), sprites.end(), [](const auto &a, const auto &b) {
+                return a->GetLayer() < b->GetLayer();
+                });
+
             auto wdsb = info.find("WidescreenStoryboard");
             bool widescreenStoryboard = wdsb != info.end() && std::stoi(wdsb->second) != 0;
             if (useStoryboardAspectRatio && !widescreenStoryboard)
