@@ -1,3 +1,4 @@
+#include <progressbar.hpp>
 #include <Storyboard.hpp>
 
 #include <opencv2/opencv.hpp>
@@ -12,7 +13,7 @@
 void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options, std::string filename)
 {
     constexpr unsigned wrapLimit = 80;
-    constexpr unsigned tabLimit = 21;
+    constexpr unsigned tabLimit = 20;
     std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
     for (auto& o : options)
     {
@@ -36,7 +37,7 @@ void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, st
 }
 
 int main(int argc, char* argv[]) {
-    std::string filename = std::string(argv[0]);
+    std::string filename = argv[0];
     std::string directory;
     std::string diff;
     std::optional<double> _starttime;
@@ -152,11 +153,10 @@ int main(int argc, char* argv[]) {
             _endtime.value() - starttime
             : std::max(activetime.second, audioDuration) - starttime);
     
-    std::cout << "Generating audio...\n";
+    std::cout << "Generating audio...";
     sb->generateAudio("temp.mp3");
 
     int frameCount = (int)std::ceil(fps * duration / 1000.0);
-    std::cout << "Rendering video...\n";
     cv::VideoWriter writer = cv::VideoWriter(
         "temp.avi",
         cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
@@ -164,19 +164,21 @@ int main(int argc, char* argv[]) {
         cv::Size(resolution.first, resolution.second)
     );
 
+    ProgressBar progress("Rendering video: ", frameCount, 0, 0.5f);
 #pragma omp parallel for ordered schedule(dynamic)
     for (int i = 0; i < frameCount; i++)
     {
         cv::Mat frame = sb->DrawFrame(starttime + i * 1000.0 / fps);
 #pragma omp ordered
         {
-            std::cout << i + 1 << "/" << frameCount << '\r';
             writer.write(frame);
+            progress.update();
         }
     }
     writer.release();
+    progress.finish();
 
-    std::cout << "\nMerging audio and video...\n";
+    std::cout << "Merging audio and video...\n";
     std::stringstream command;
     command << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
         << starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;
