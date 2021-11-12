@@ -133,7 +133,6 @@ namespace sb
     {
         T operator()(T in) { return in; }
     };
-    template <class ... t>
     constexpr bool alwaysFalse = false;
     template <EventType T, typename R, ParameterType P = ParameterType::Additive>
     R generateKeyframesForEvent(const std::vector<std::unique_ptr<IEvent>>& events, std::pair<double, double> coordinates, const std::vector<std::tuple<double, double, int>>& activations)
@@ -156,7 +155,7 @@ namespace sb
                 else if constexpr (T == EventType::P && P == ParameterType::Additive) return type == EventType::P && dynamic_cast<Event<ParameterType>*>(event.get())->GetStartValue() == ParameterType::Additive;
                 else if constexpr (T == EventType::P && P == ParameterType::FlipH) return type == EventType::P && dynamic_cast<Event<ParameterType>*>(event.get())->GetStartValue() == ParameterType::FlipH;
                 else if constexpr (T == EventType::P && P == ParameterType::FlipV) return type == EventType::P && dynamic_cast<Event<ParameterType>*>(event.get())->GetStartValue() == ParameterType::FlipV;
-                else static_assert(alwaysFalse<T>, "Template argument T invalid");
+                //else static_assert(alwaysFalse, "Template argument T invalid");
             }
         };
         isApplicable isApplicable;

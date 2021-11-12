@@ -121,10 +121,26 @@ namespace sb
                 if (inTrigger && depth < 2) inTrigger = false;
                 if (inLoop && depth < 2) inLoop = false;
 
-                std::unordered_map<std::string, Keyword>::const_iterator k = KeywordStrings.find(split[0]);
-                Keyword keyword = k == KeywordStrings.end() ? Keyword::None : k->second;
+                Keyword keyword = parseEnum(KeywordStrings, split[0]).value_or(Keyword::None);
                 switch (keyword)
                 {
+                case Keyword::Background:
+                {
+                    std::string path = removePathQuotes(split[2]);
+                    std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
+                    background = Background(path, offset);
+                    hasBackground = true;
+                }
+                break;
+                case Keyword::Video:
+                {
+                    double starttime = std::stod(split[1]);
+                    std::string path = removePathQuotes(split[2]);
+                    std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
+                    video = Video(starttime, path, offset);
+                    hasVideo = true;
+                }
+                break;
                 case Keyword::Sprite:
                 {
                     // TODO: Error handling
@@ -145,8 +161,7 @@ namespace sb
                     float y = std::stof(split[5]);
                     int frameCount = std::stoi(split[6]);
                     double frameDelay = std::stod(split[7]);
-                    auto l = LoopTypeStrings.find(split[8]); // TODO: parse enums either by integer or name
-                    LoopType loopType = split.size() > 8 && l != LoopTypeStrings.end() ? l->second : LoopType::LoopForever;
+                    LoopType loopType = parseEnum(LoopTypeStrings, split[8]).value_or(LoopType::LoopForever);
                     sprites.push_back(std::make_unique<class Animation>(layer, origin, path, std::pair<double, double>(x, y), frameCount, frameDelay, loopType));
                 }
                 break;
@@ -159,52 +174,35 @@ namespace sb
                     samples.emplace_back(time, layer, path, volume);
                 }
                 break;
-                case Keyword::T:
-                {
-                    if (inTrigger || inLoop)
-                    {
-                        // TODO: Error
-                    }
-                    std::string triggerName = split[1];
-                    double starttime = std::stod(split[2]);
-                    double endTime = std::stod(split[3]);
-                    int groupNumber = split.size() > 4 ? std::stoi(split[4]) : 0;
-                    (*(sprites.end() - 1))->AddTrigger({ triggerName, starttime, endTime, groupNumber });
-                    inTrigger = true;
-                }
-                break;
-                case Keyword::L:
-                {
-                    if (inLoop || inTrigger)
-                    {
-                        // TODO: Error
-                    }
-                    double starttime = std::stod(split[1]);
-                    int loopCount = std::stoi(split[2]);
-                    (*(sprites.end() - 1))->AddLoop({ starttime, loopCount });
-                    inLoop = true;
-                }
-                break;
-                case Keyword::None:
                 default:
                 {
-                    if (split[0] == "0" && split[1] == "0" && depth == 0 && !hasBackground)
+                    if (split[0] == "T")
                     {
-                        std::string path = removePathQuotes(split[2]);
-                        std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
-                        background = Background(path, offset);
-                        hasBackground = true;
+                        if (inTrigger || inLoop)
+                        {
+                            // TODO: Error
+                        }
+                        std::string triggerName = split[1];
+                        double starttime = std::stod(split[2]);
+                        double endTime = std::stod(split[3]);
+                        int groupNumber = split.size() > 4 ? std::stoi(split[4]) : 0;
+                        (*(sprites.end() - 1))->AddTrigger({ triggerName, starttime, endTime, groupNumber });
+                        inTrigger = true;
                         break;
                     }
-                    if (((split[0] == "Video" || split[0] == "1") && !hasVideo) && depth == 0)
+                    if (split[0] == "L")
                     {
+                        if (inLoop || inTrigger)
+                        {
+                            // TODO: Error
+                        }
                         double starttime = std::stod(split[1]);
-                        std::string path = removePathQuotes(split[2]);
-                        std::pair<double, double> offset = split.size() < 3 ? std::pair<double, double>(std::stoi(split[3]), std::stoi(split[4])) : std::pair<double, double>(0, 0);
-                        video = Video(starttime, path, offset);
-                        hasVideo = true;
+                        int loopCount = std::stoi(split[2]);
+                        (*(sprites.end() - 1))->AddLoop({ starttime, loopCount });
+                        inLoop = true;
                         break;
                     }
+
                     if (depth == 0) break;
                     if (split[3].length() == 0)
                         split[3] = split[2];

@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <optional>
 
 namespace sb
 {
@@ -51,8 +52,7 @@ namespace sb
     enum class LoopType
     {
         LoopForever,
-        LoopOnce,
-        Custom
+        LoopOnce
     };
     static const std::unordered_map<std::string, LoopType> LoopTypeStrings =
     {
@@ -75,7 +75,6 @@ namespace sb
 
     enum class EventType
     {
-        None,
         F,
         S,
         V,
@@ -84,7 +83,8 @@ namespace sb
         MX,
         MY,
         C,
-        P
+        P,
+        None
     };
     static const std::unordered_map<std::string, EventType> EventTypeStrings
     {
@@ -101,19 +101,41 @@ namespace sb
 
     enum class Keyword
     {
-        None,
+        Background,
+        Video,
+        Break,
+        Colour,
         Sprite,
-        Animation,
         Sample,
-        T,
-        L
+        Animation,
+        None
     };
     static const std::unordered_map<std::string, Keyword> KeywordStrings =
     {
+        {"Background", Keyword::Background},
+        {"Video", Keyword::Video},
+        {"Break", Keyword::Break},
+        {"Colour", Keyword::Colour},
         {"Sprite", Keyword::Sprite},
-        {"Animation", Keyword::Animation},
         {"Sample", Keyword::Sample},
-        {"T", Keyword::T},
-        {"L", Keyword::L},
+        {"Animation", Keyword::Animation}
     };
+
+    template <typename T>
+    std::optional<T> parseEnum(const std::unordered_map<std::string, T> S, std::string s)
+    {
+        const auto k = S.find(s);
+        if (k != S.end()) return k->second;
+        try
+        {
+            // TODO: will accept leading whitespace and trailing characters
+            int val = std::stoi(s);
+            if (val < 0 || val >= S.size()) return std::nullopt;
+            return static_cast<T>(val);
+        }
+        catch (...)
+        {
+            return std::nullopt;
+        }
+    }
 }
