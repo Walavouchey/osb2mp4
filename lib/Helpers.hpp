@@ -1,11 +1,15 @@
 #pragma once
 
+#include <ImageReader.hpp>
+
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <utility>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 
 namespace sb
 {
@@ -77,6 +81,6 @@ namespace sb
 
     cv::Mat readImageFile(const std::string& filepath)
     {
-        return convertImage(cv::imread(filepath, cv::IMREAD_UNCHANGED));
+        return convertImage(readImage(filepath));
     }
 }
