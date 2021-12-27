@@ -41,7 +41,7 @@ namespace sb
             {}
             double time = 0;
             double beatLength = 0;
-            double sliderMultiplier = beatLength > 0 ? 1.0 : -(beatLength / 100.0);
+            double sliderMultiplier = beatLength >= 0 ? 1.0 : 100.0 / -beatLength;
             int meter = 4;
             int sampleSet = 0;
             int sampleIndex = 0;
