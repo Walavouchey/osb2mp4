@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Merging audio and video...\n";
     std::stringstream command;
-    command << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
+    command << std::fixed << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
         << starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;
     system(command.str().c_str());
     if (!keepTemporaryFiles)
