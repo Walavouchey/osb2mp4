@@ -144,8 +144,8 @@ namespace sb
                 case Keyword::Sprite:
                 {
                     // TODO: Error handling
-                    Layer layer = LayerStrings.find(split[1])->second;
-                    Origin origin = OriginStrings.find(split[2])->second;
+                    Layer layer = parseEnum(LayerStrings, split[1]).value_or(Layer::Background);
+                    Origin origin = parseEnum(OriginStrings, split[2]).value_or(Origin::Centre);
                     std::string path = removePathQuotes(split[3]);
                     float x = std::stof(split[4]);
                     float y = std::stof(split[5]);
@@ -154,8 +154,8 @@ namespace sb
                 break;
                 case Keyword::Animation:
                 {
-                    Layer layer = LayerStrings.find(split[1])->second;
-                    Origin origin = OriginStrings.find(split[2])->second;
+                    Layer layer = parseEnum(LayerStrings, split[1]).value_or(Layer::Background);
+                    Origin origin = parseEnum(OriginStrings, split[2]).value_or(Origin::Centre);
                     std::string path = removePathQuotes(split[3]);
                     float x = std::stof(split[4]);
                     float y = std::stof(split[5]);
@@ -168,7 +168,7 @@ namespace sb
                 case Keyword::Sample:
                 {
                     double time = std::stod(split[1]);
-                    Layer layer = static_cast<Layer>(std::stoi(split[2]));
+                    Layer layer = parseEnum(LayerStrings, split[2]).value_or(Layer::Background);
                     std::string path = removePathQuotes(split[3]);
                     float volume = std::stof(split[4]);
                     samples.emplace_back(time, layer, path, volume);
