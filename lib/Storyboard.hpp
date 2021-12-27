@@ -28,7 +28,6 @@ namespace sb
             dim(dim),
             showFailLayer(showFailLayer),
             frameScale(resolution.second / 480.0),
-            xOffset((resolution.first - resolution.second / 3.0 * 4) * 0.5),
             zoom(zoom)
         {
             for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory))
@@ -66,6 +65,8 @@ namespace sb
             bool widescreenStoryboard = wdsb != info.end() && std::stoi(wdsb->second) != 0;
             if (useStoryboardAspectRatio && !widescreenStoryboard)
                 this->resolution = std::pair<unsigned, unsigned>(resolution.second / 3.0f * 4, resolution.second);
+
+            xOffset = (this->resolution.first - this->resolution.second / 3.0 * 4) * 0.5;
 
             std::cout << "Initialising storyboard (" << sprites.size() << " sprites, " << samples.size() << " samples)" << "\n";
             for (std::unique_ptr<Sprite>& sprite : sprites)
