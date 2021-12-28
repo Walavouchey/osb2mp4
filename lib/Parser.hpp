@@ -402,7 +402,7 @@ namespace sb
                         int slides = std::stoi(split[6]);
                         double length = std::stod(split[7]);
                         double beatmapSliderMultiplier = std::stod(info.find("SliderMultiplier")->second);
-                        double travelDuration = currentTimingPoint.beatLength * length / beatmapSliderMultiplier / 100.0 * currentControlPoint.sliderMultiplier;
+                        double travelDuration = currentTimingPoint.beatLength * length / beatmapSliderMultiplier / 100.0 / currentControlPoint.sliderMultiplier;
                         std::vector<std::string> hitSample = stringSplit(split[10], ":");
                         std::vector<std::string> edgeSounds = stringSplit(split[8], "|");
                         std::vector<std::string> edgeSets = stringSplit(split[9], "|");
