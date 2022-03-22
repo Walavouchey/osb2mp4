@@ -186,8 +186,8 @@ int main(int argc, char* argv[]) {
     if (!keepTemporaryFiles)
     {
         std::cout << "Deleting temporary files...\n";
-        system("rm temp.mp3");
-        system("rm temp.avi");
+        sb::removeFile("temp.mp3");
+        sb::removeFile("temp.avi");
     }
 
     std::cout << "Done\n";

@@ -83,4 +83,16 @@ namespace sb
     {
         return convertImage(readImage(filepath));
     }
+
+    void removeFile(const std::filesystem::path& filepath)
+    {
+        try
+        {
+            std::filesystem::remove(filepath);
+        }
+        catch (std::filesystem::filesystem_error e)
+        {
+            std::cerr << "Could not delete \"" << filepath << "\": " << e.what() << std::endl;
+        }
+    }
 }
