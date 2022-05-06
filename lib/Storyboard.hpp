@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <limits>
 #include <unordered_map>
@@ -40,7 +41,7 @@ namespace sb
             }
             if (osb.empty())
             {
-                throw std::exception("No .osb file found");
+                throw std::runtime_error("No .osb file found");
             }
             if (this->diff.empty())
                 for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory))
@@ -53,7 +54,7 @@ namespace sb
                 }
             if (this->diff.empty())
             {
-                throw std::exception("No difficulty file found");
+                throw std::runtime_error("No difficulty file found");
             }
             ParseStoryboard(directory, osb, this->diff, sprites, samples, hitSounds, background, video, info);
 
