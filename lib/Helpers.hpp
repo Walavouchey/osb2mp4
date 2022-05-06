@@ -11,6 +11,11 @@
 #include <filesystem>
 #include <fstream>
 
+#if _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
 namespace sb
 {
     void stringReplace(std::string& s, const std::string& search, const std::string& replace)
@@ -48,7 +53,7 @@ namespace sb
     {
         char buffer[128];
         std::string result = "";
-        FILE* pipe = _popen(cmd.c_str(), "r");
+        FILE* pipe = popen(cmd.c_str(), "r");
         if (!pipe) throw std::runtime_error("popen() failed!");
         try {
             while (fgets(buffer, sizeof buffer, pipe) != NULL) {
@@ -56,10 +61,10 @@ namespace sb
             }
         }
         catch (...) {
-            _pclose(pipe);
+            pclose(pipe);
             throw;
         }
-        _pclose(pipe);
+        pclose(pipe);
         return result;
     }
 
