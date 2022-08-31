@@ -34,7 +34,7 @@ namespace sb
 
     void applyVariables(std::string& line, const std::unordered_map<std::string, std::string>& variables)
     {
-        for (const std::pair<std::string, std::string>& e : variables)
+        for (auto e : variables)
             stringReplace(line, e.first, e.second);
     }
 
