@@ -1,4 +1,5 @@
 #include <Trigger.hpp>
+#include <HitSound.hpp>
 
 namespace sb {
 

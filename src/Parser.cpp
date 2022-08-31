@@ -3,6 +3,7 @@
 #include <Video.hpp>
 #include <Sample.hpp>
 #include <Animation.hpp>
+#include <HitSound.hpp>
 
 namespace sb {
 

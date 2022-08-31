@@ -1,7 +1,8 @@
 #pragma once
 
 #include <Interpolation.hpp>
-#include <Types.hpp>
+#include <Colour.hpp>
+#include <Event.hpp>
 
 #include <limits>
 #include <vector>

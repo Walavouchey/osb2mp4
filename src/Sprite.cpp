@@ -1,4 +1,5 @@
 #include <Sprite.hpp>
+#include <HitSound.hpp>
 
 namespace sb {
 

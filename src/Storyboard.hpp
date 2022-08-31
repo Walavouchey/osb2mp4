@@ -16,6 +16,7 @@
 #include <Video.hpp>
 #include <Background.hpp>
 #include <Sample.hpp>
+#include <HitSound.hpp>
 
 namespace sb
 {
