@@ -61,13 +61,13 @@ namespace sb
         return std::pair<T, T>(first, second);
     }
     template <typename T, typename V, typename Selector>
-    void addKeyframe(Selector W, std::vector<Keyframe<T>>& keyframes, double time, V value, bool alt, Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
+    void addKeyframe(Selector W, std::vector<Keyframe<T>>& keyframes, double time, V value, [[maybe_unused]] bool alt, Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
     {
         keyframes.push_back(Keyframe<T>(time, W(value), easing, interpolationOffset));
     }
 
     template <typename T = bool, typename V = ParameterType, typename Selector>
-    void addKeyframe(Selector W, std::vector<Keyframe<T>>& keyframes, double time, ParameterType value, bool alt, Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
+    void addKeyframe([[maybe_unused]] Selector W, std::vector<Keyframe<T>>& keyframes, double time, [[maybe_unused]] ParameterType value, bool alt, [[maybe_unused]] Easing easing, double interpolationOffset = std::numeric_limits<double>::infinity())
     {
         keyframes.push_back(Keyframe<T>(time, alt, Easing::Step, interpolationOffset));
     }

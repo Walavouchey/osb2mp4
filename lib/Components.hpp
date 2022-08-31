@@ -284,7 +284,7 @@ namespace sb
         {
             return origin;
         }
-        virtual const std::string GetFilePath(double time) const
+        virtual const std::string GetFilePath([[maybe_unused]] double time) const
         {
             return filepath;
         }

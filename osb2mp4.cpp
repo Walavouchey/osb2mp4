@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
                 requiresArgument, \
                 option, \
                 alias, \
-                std::function([&var](std::string& arg) { var = assign; }), \
+                std::function([&var]([[maybe_unused]] std::string& arg) { var = assign; }), \
                 explanation, \
                 placeholder \
             )

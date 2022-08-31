@@ -29,8 +29,8 @@ namespace sb
         std::string line;
         bool inLoop = false;
         bool inTrigger = false;
-        bool hasBackground = false;
-        bool hasVideo = false;
+        [[maybe_unused]] bool hasBackground = false;
+        [[maybe_unused]] bool hasVideo = false;
         struct ControlPoint
         {
             ControlPoint() = default;

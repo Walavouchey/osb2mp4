@@ -119,7 +119,7 @@ namespace sb
                 {
                     if (spriteImages.find(filePath) != spriteImages.end()) continue;
                     cv::Mat image = readImageFile((directory / filePath).generic_string());
-                    auto ret = spriteImages.emplace(filePath, image);
+                    [[maybe_unused]] auto ret = spriteImages.emplace(filePath, image);
                 }
             }
         }
@@ -333,8 +333,8 @@ namespace sb
             ScanLine(quad[2].x, quad[2].y, quad[3].x, quad[3].y, ContourX);
             ScanLine(quad[3].x, quad[3].y, quad[0].x, quad[0].y, ContourX);
 
-            float imageX = 0;
-            float imageY = 0;
+            [[maybe_unused]] float imageX = 0;
+            [[maybe_unused]] float imageY = 0;
 
             float minY = std::numeric_limits<float>::max();
             float maxY = std::numeric_limits<float>::min();
@@ -536,7 +536,7 @@ namespace sb
         cv::VideoCapture videoCap;
         cv::Mat videoImage;
         bool videoOpen = false;
-        double lastFrame;
+        [[maybe_unused]] double lastFrame;
         double frameScale;
         double xOffset;
         float zoom;
