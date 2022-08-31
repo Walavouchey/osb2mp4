@@ -163,11 +163,12 @@ namespace sb
     public:
         Sprite(Layer layer, Origin origin, const std::string& filepath, const std::pair<double, double>& coordinates)
             :
+            filepath(filepath),
             layer(layer),
             origin(origin),
-            filepath(filepath),
             coordinates(coordinates)
         {}
+        virtual ~Sprite() = default;
         template <typename T>
         void AddEvent(std::unique_ptr<Event<T>> event)
         {
@@ -336,6 +337,7 @@ namespace sb
             framedelay(framedelay),
             looptype(looptype)
         {}
+        virtual ~Animation() = default;
         int frameIndexAt(double time) const
         {
             if (time - activetime.first < framecount * framedelay || looptype == LoopType::LoopForever)
