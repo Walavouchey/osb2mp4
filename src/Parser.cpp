@@ -1,4 +1,8 @@
 #include <Parser.hpp>
+#include <Background.hpp>
+#include <Video.hpp>
+#include <Sample.hpp>
+#include <Animation.hpp>
 
 namespace sb {
 

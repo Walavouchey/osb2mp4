@@ -15,11 +15,14 @@ opencv_dep = dependency('opencv', required: true)
 
 executable('osb2mp4', [
     'src/main.cpp',
-    'src/Components.cpp',
+    'src/Animation.cpp',
     'src/Helpers.cpp',
     'src/ImageReader.cpp',
+    'src/Loop.cpp',
     'src/Parser.cpp',
+    'src/Sprite.cpp',
     'src/Storyboard.cpp',
+    'src/Trigger.cpp',
   ],
   include_directories: 'src',
   dependencies: [gifdec_dep, openmp_dep, opencv_dep])

@@ -9,6 +9,7 @@
 #include <string>
 #include <functional>
 #include <optional>
+#include <Sprite.hpp>
 
 void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options, std::string filename)
 {

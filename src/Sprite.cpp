@@ -1,60 +1,6 @@
-#include <Components.hpp>
+#include <Sprite.hpp>
 
 namespace sb {
-
-    void Loop::Initialise()
-    {
-        if (loopcount < 1) loopcount = 1; // today i learned that loops behave like this
-        looplength = (*(events.end() - 1))->GetEndTime();
-        std::vector<std::unique_ptr<IEvent>> expandedEvents;
-        std::vector<std::pair<double, double>> durations;
-        for (int i = 0; i < loopcount; i++)
-        {
-            int j = 0;
-            for (std::unique_ptr<IEvent>& event : events)
-            {
-                if (i == 0) durations.emplace_back(std::pair<double, double>{event->GetStartTime(), event->GetEndTime()});
-                event->SetStartTime(starttime + durations[j].first + looplength * i);
-                event->SetEndTime(starttime + durations[j].second + looplength * i);
-                expandedEvents.push_back(event->copy());
-                j++;
-            }
-        }
-        events = std::move(expandedEvents);
-        endtime = starttime + looplength * loopcount;
-    }
-
-    void Trigger::Initialise(std::vector<std::pair<double, HitSound>>& hitSounds, std::vector<std::tuple<double, double, int>>& activations, int& id)
-    {
-        if (!HitSound::IsHitSound(triggerName)) return; // TODO: ignoring failing and passing state triggers for now
-        looplength = (*(events.end() - 1))->GetEndTime();
-        std::vector<double> activationTimes;
-        for (const std::pair<double, HitSound>& hitSound : hitSounds)
-            if (hitSound.first >= starttime && hitSound.first < endtime
-                && hitSound.second == HitSound(triggerName))
-            {
-                activations.push_back(std::tuple<double, double, int>(hitSound.first, hitSound.first + looplength, groupNumber));
-                activationTimes.push_back(hitSound.first);
-                activated = true;
-            }
-        std::vector<std::unique_ptr<IEvent>> expandedEvents;
-        if (activated)
-        {
-            for (double activationTime : activationTimes)
-            {
-                for (std::unique_ptr<IEvent>& event : events)
-                {
-                    std::unique_ptr<IEvent> copy = event->copy();
-                    copy->SetTriggerID(id, activationTime, groupNumber);
-                    copy->SetStartTime(activationTime + copy->GetStartTime());
-                    copy->SetEndTime(activationTime + copy->GetEndTime());
-                    expandedEvents.push_back(std::move(copy));
-                }
-                id++;
-            }
-            events = std::move(expandedEvents);
-        }
-    }
 
     void Sprite::Initialise(std::vector<std::pair<double, HitSound>> &hitSounds)
     {

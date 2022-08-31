@@ -1,4 +1,5 @@
 #include <Storyboard.hpp>
+#include <Sprite.hpp>
 
 namespace sb {
     Storyboard::Storyboard(const std::filesystem::path& directory, const std::string& diff, std::pair<unsigned, unsigned> resolution, float musicVolume, float effectVolume, float dim, bool useStoryboardAspectRatio, bool showFailLayer, float zoom)

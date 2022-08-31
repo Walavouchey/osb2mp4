@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Components.hpp>
 #include <Parser.hpp>
 
 #include <opencv2/opencv.hpp>
@@ -13,6 +12,10 @@
 #include <vector>
 #include <memory>
 #include <exception>
+
+#include <Video.hpp>
+#include <Background.hpp>
+#include <Sample.hpp>
 
 namespace sb
 {
