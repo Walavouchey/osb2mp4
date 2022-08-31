@@ -178,9 +178,9 @@ namespace sb
             return (other.normalSet == -1 ? true : normalSet == other.normalSet)
                 && (other.additionSet == -1 ? true : additionSet == other.additionSet)
                 && (other.additionFlag == -1 ? true :
-                    (additionFlag & 2) >> 1 && (other.additionFlag & 2) >> 1
-                    || (additionFlag & 4) >> 2 && (other.additionFlag & 4) >> 2
-                    || (additionFlag & 8) >> 3 && (other.additionFlag & 8) >> 3)
+                    ((additionFlag & 2) >> 1 && (other.additionFlag & 2) >> 1)
+                    || ((additionFlag & 4) >> 2 && (other.additionFlag & 4) >> 2)
+                    || ((additionFlag & 8) >> 3 && (other.additionFlag & 8) >> 3))
                 && (other.index == -1 ? true : index == other.index);
         }
         static bool IsHitSound(const std::string& triggerType)

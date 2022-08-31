@@ -137,7 +137,7 @@ namespace sb
     template <EventType T, typename R, ParameterType P = ParameterType::Additive>
     R generateKeyframesForEvent(const std::vector<std::unique_ptr<IEvent>>& events, std::pair<double, double> coordinates, const std::vector<std::tuple<double, double, int>>& activations)
     {
-        static_assert(T != EventType::P && P == ParameterType::Additive || T == EventType::P, "Invalid template arguments");
+        static_assert((T != EventType::P && P == ParameterType::Additive) || T == EventType::P, "Invalid template arguments");
         auto XKeyframes = std::vector<Keyframe<double>>();
         auto YKeyframes = std::vector<Keyframe<double>>();
         R keyframes = R();
