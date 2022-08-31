@@ -18,6 +18,7 @@ executable('osb2mp4', [
     'src/Helpers.cpp',
     'src/ImageReader.cpp',
     'src/Components.cpp',
+    'src/Parser.cpp',
   ],
   include_directories: 'src',
   dependencies: [gifdec_dep, openmp_dep, opencv_dep])
