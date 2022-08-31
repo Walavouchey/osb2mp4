@@ -47,7 +47,7 @@ gd_open_gif(const char *fname)
     int i;
     uint8_t *bgcolor;
     int gct_sz;
-    gd_GIF *gif;
+    gd_GIF *gif = NULL;
 
     fd = _open(fname, O_RDONLY);
     if (fd == -1) return NULL;
