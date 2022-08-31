@@ -5,9 +5,10 @@ project('gifdec', 'c',
   ])
 
 gifdec_lib = library('gifdec', 'src/gifdec.c',
-  include_directories: 'lib'
+  include_directories: 'include'
   )
+
 gifdec_dep = declare_dependency(
   link_with: gifdec_lib,
-  include_directories: 'lib'
+  include_directories: 'include'
   )

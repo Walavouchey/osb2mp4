@@ -9,14 +9,13 @@ project('osb2mp4', 'cpp',
 add_global_arguments('-Wno-unsequenced', language: 'cpp')
 add_global_arguments('-Wno-c11-extensions', language: 'cpp')
 
-gifdec_proj = subproject('gifdec')
-gifdec_dep = gifdec_proj.get_variable('gifdec_dep')
+gifdec_dep = subproject('gifdec').get_variable('gifdec_dep')
 openmp_dep = dependency('openmp', required: false)
 opencv_dep = dependency('opencv', required: true)
 
 executable('osb2mp4', [
-    'osb2mp4.cpp',
+    'src/main.cpp',
     'src/ImageReader.cpp'
   ],
-  include_directories: 'lib',
+  include_directories: 'src',
   dependencies: [gifdec_dep, openmp_dep, opencv_dep])
