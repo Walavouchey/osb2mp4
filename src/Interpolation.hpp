@@ -46,44 +46,44 @@ namespace sb
     };
 
     constexpr double PI = 3.14159265358979323846;
-    double Reverse(double(*f)(double), double t) { return 1 - f(1 - t); }
-    double ToInOut(double(*f)(double), double t) { return 0.5 * (t < 0.5 ? f(2 * t) : (2 - f(2 - 2 * t))); }
-    double Step(double t) { return t >= 1 ? 1 : 0; }
-    double Linear(double t) { return t; }
-    double InQuad(double t) { return t * t; }
-    double OutQuad(double t) { return Reverse(InQuad, t); }
-    double InOutQuad(double t) { return ToInOut(InQuad, t); }
-    double InCubic(double t) { return t * t * t; }
-    double OutCubic(double t) { return Reverse(InCubic, t); }
-    double InOutCubic(double t) { return ToInOut(InCubic, t); }
-    double InQuart(double t) { return t * t * t * t; }
-    double OutQuart(double t) { return Reverse(InQuart, t); }
-    double InOutQuart(double t) { return ToInOut(InQuart, t); }
-    double InQuint(double t) { return t * t * t * t * t; }
-    double OutQuint(double t) { return Reverse(InQuint, t); }
-    double InOutQuint(double t) { return ToInOut(InQuint, t); }
-    double InSine(double t) { return 1 - std::cos(t * PI / 2); }
-    double OutSine(double t) { return Reverse(InSine, t); }
-    double InOutSine(double t) { return ToInOut(InSine, t); }
-    double InExpo(double t) { return std::pow(2, 10 * (t - 1)); }
-    double OutExpo(double t) { return Reverse(InExpo, t); }
-    double InOutExpo(double t) { return ToInOut(InExpo, t); }
-    double InCirc(double t) { return 1 - std::sqrt(1 - t * t); }
-    double OutCirc(double t) { return Reverse(InCirc, t); }
-    double InOutCirc(double t) { return ToInOut(InCirc, t); }
-    double InBack(double t) { return t * t * ((1.70158 + 1) * t - 1.70158); }
-    double OutBack(double t) { return Reverse(InBack, t); }
-    double InOutBack(double t) { return ToInOut([](double y) { return y * y * ((1.70158 * 1.525 + 1) * y - 1.70158 * 1.525); }, t); }
-    double OutBounce(double t) { return t < 1 / 2.75 ? 7.5625 * t * t : t < 2 / 2.75 ? 7.5625 * (t -= (1.5 / 2.75)) * t + .75 : t < 2.5 / 2.75 ? 7.5625 * (t -= (2.25 / 2.75)) * t + .9375 : 7.5625 * (t -= (2.625 / 2.75)) * t + .984375; }
-    double InBounce(double t) { return Reverse(OutBounce, t); }
-    double InOutBounce(double t) { return ToInOut(InBounce, t); }
-    double OutElastic(double t) { return std::pow(2, -10 * t) * std::sin((t - 0.075) * (2 * t) / .3) + 1; }
-    double InElastic(double t) { return Reverse(OutElastic, t); }
-    double OutElasticHalf(double t) { return std::pow(2, -10 * t) * std::sin((0.5 * t - 0.075) * (2 * PI) / .3) + 1; }
-    double OutElasticQuarter(double t) { return std::pow(2, -10 * t) * std::sin((0.25 * t - 0.075) * (2 * PI) / .3) + 1; }
-    double InOutElastic(double t) { return ToInOut(InElastic, t); }
+    inline double Reverse(double(*f)(double), double t) { return 1 - f(1 - t); }
+    inline double ToInOut(double(*f)(double), double t) { return 0.5 * (t < 0.5 ? f(2 * t) : (2 - f(2 - 2 * t))); }
+    inline double Step(double t) { return t >= 1 ? 1 : 0; }
+    inline double Linear(double t) { return t; }
+    inline double InQuad(double t) { return t * t; }
+    inline double OutQuad(double t) { return Reverse(InQuad, t); }
+    inline double InOutQuad(double t) { return ToInOut(InQuad, t); }
+    inline double InCubic(double t) { return t * t * t; }
+    inline double OutCubic(double t) { return Reverse(InCubic, t); }
+    inline double InOutCubic(double t) { return ToInOut(InCubic, t); }
+    inline double InQuart(double t) { return t * t * t * t; }
+    inline double OutQuart(double t) { return Reverse(InQuart, t); }
+    inline double InOutQuart(double t) { return ToInOut(InQuart, t); }
+    inline double InQuint(double t) { return t * t * t * t * t; }
+    inline double OutQuint(double t) { return Reverse(InQuint, t); }
+    inline double InOutQuint(double t) { return ToInOut(InQuint, t); }
+    inline double InSine(double t) { return 1 - std::cos(t * PI / 2); }
+    inline double OutSine(double t) { return Reverse(InSine, t); }
+    inline double InOutSine(double t) { return ToInOut(InSine, t); }
+    inline double InExpo(double t) { return std::pow(2, 10 * (t - 1)); }
+    inline double OutExpo(double t) { return Reverse(InExpo, t); }
+    inline double InOutExpo(double t) { return ToInOut(InExpo, t); }
+    inline double InCirc(double t) { return 1 - std::sqrt(1 - t * t); }
+    inline double OutCirc(double t) { return Reverse(InCirc, t); }
+    inline double InOutCirc(double t) { return ToInOut(InCirc, t); }
+    inline double InBack(double t) { return t * t * ((1.70158 + 1) * t - 1.70158); }
+    inline double OutBack(double t) { return Reverse(InBack, t); }
+    inline double InOutBack(double t) { return ToInOut([](double y) { return y * y * ((1.70158 * 1.525 + 1) * y - 1.70158 * 1.525); }, t); }
+    inline double OutBounce(double t) { return t < 1 / 2.75 ? 7.5625 * t * t : t < 2 / 2.75 ? 7.5625 * (t -= (1.5 / 2.75)) * t + .75 : t < 2.5 / 2.75 ? 7.5625 * (t -= (2.25 / 2.75)) * t + .9375 : 7.5625 * (t -= (2.625 / 2.75)) * t + .984375; }
+    inline double InBounce(double t) { return Reverse(OutBounce, t); }
+    inline double InOutBounce(double t) { return ToInOut(InBounce, t); }
+    inline double OutElastic(double t) { return std::pow(2, -10 * t) * std::sin((t - 0.075) * (2 * t) / .3) + 1; }
+    inline double InElastic(double t) { return Reverse(OutElastic, t); }
+    inline double OutElasticHalf(double t) { return std::pow(2, -10 * t) * std::sin((0.5 * t - 0.075) * (2 * PI) / .3) + 1; }
+    inline double OutElasticQuarter(double t) { return std::pow(2, -10 * t) * std::sin((0.25 * t - 0.075) * (2 * PI) / .3) + 1; }
+    inline double InOutElastic(double t) { return ToInOut(InElastic, t); }
 
-    double applyEasing(Easing easing, double t)
+    inline double applyEasing(Easing easing, double t)
     {
         switch (easing)
         {
@@ -128,18 +128,18 @@ namespace sb
     }
 
     template <typename T>
-    T InterpolateLinear(T start, T end, double t)
+    inline T InterpolateLinear(T start, T end, double t)
     {
         return start + (end - start) * t;
     }
 
-    std::pair<double, double> InterpolateLinear(std::pair<double, double> start, std::pair<double, double> end, double t)
+    inline std::pair<double, double> InterpolateLinear(std::pair<double, double> start, std::pair<double, double> end, double t)
     {
         return std::pair<double, double>(InterpolateLinear(start.first, end.first, t), InterpolateLinear(start.second, end.second, t));
     }
 
     template <typename T>
-    T InterpolateBilinear(T topLeft, T topRight, T bottomLeft, T bottomRight, double tx, double ty)
+    inline T InterpolateBilinear(T topLeft, T topRight, T bottomLeft, T bottomRight, double tx, double ty)
     {
         return InterpolateLinear(
             InterpolateLinear(topLeft, topRight, tx),
