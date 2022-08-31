@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <string>
+#include <Enums.hpp>
+#include <Interpolation.hpp>
 
 namespace sb
 {
@@ -151,7 +153,7 @@ namespace sb
         {}
         HitSound(const std::string& triggerType)
         {
-            int p = 8;
+            size_t p = 8;
             if (triggerType.find("All", p) == p) { p += 3; normalSet = -1; }
             else if (triggerType.find("Normal", p) == p) { p += 6; normalSet = 1; }
             else if (triggerType.find("Soft", p) == p) { p += 4; normalSet = 2; }

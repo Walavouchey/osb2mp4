@@ -399,14 +399,14 @@ namespace sb
                             if (controlPoint.time >= time && controlPoint.uninherited) break;
                             if (controlPoint.uninherited) currentTimingPoint = controlPoint;
                         }
-                        int slides = std::stoi(split[6]);
+                        size_t slides = std::stoull(split[6]);
                         double length = std::stod(split[7]);
                         double beatmapSliderMultiplier = std::stod(info.find("SliderMultiplier")->second);
                         double travelDuration = currentTimingPoint.beatLength * length / beatmapSliderMultiplier / 100.0 / currentControlPoint.sliderMultiplier;
                         std::vector<std::string> hitSample = stringSplit(split[10], ":");
                         std::vector<std::string> edgeSounds = stringSplit(split[8], "|");
                         std::vector<std::string> edgeSets = stringSplit(split[9], "|");
-                        for (int i = 0; i < slides + 1; i++)
+                        for (size_t i = 0; i < slides + 1; i++)
                         {
                             int normalSet = edgeSets.size() > i ? std::stoi(stringSplit(edgeSets[i], ":")[0]) : 0;
                             int additionSet = edgeSets.size() > i ? std::stoi(stringSplit(edgeSets[i], ":")[1]) : 0;

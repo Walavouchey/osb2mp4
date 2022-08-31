@@ -129,7 +129,7 @@ namespace sb
         try
         {
             // TODO: will accept leading whitespace and trailing characters
-            int val = std::stoi(s);
+            size_t val = std::stoi(s);
             if (val < 0 || val >= S.size()) return std::nullopt;
             return static_cast<T>(val);
         }

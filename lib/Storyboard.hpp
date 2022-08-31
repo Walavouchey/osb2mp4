@@ -181,9 +181,9 @@ namespace sb
             std::cout << std::endl;
             command += " -filter_complex ";
             std::string filters;
-            for (int i = 0; i < delays.size(); i++)
+            for (size_t i = 0; i < delays.size(); i++)
                 filters += "[" + std::to_string(indices[i]) + ":a]volume=" + std::to_string(volumes[i]) + ",adelay=delays=" + std::to_string(delays[i]) + ":all=1[d" + std::to_string(i) + "];";
-            for (int i = 0; i < delays.size(); i++)
+            for (size_t i = 0; i < delays.size(); i++)
                 filters += "[d" + std::to_string(i) + "]";
             filters += "amix=inputs=" + std::to_string(delays.size()) + ":dropout_transition=" + std::to_string(maxDelay + (int)maxDuration) + "[a]";
             command += "\"" + filters + "\"";
@@ -313,7 +313,7 @@ namespace sb
         void RasteriseQuad(cv::MatIterator_<cv::Vec<uint8_t, 3>> frameStart, cv::MatConstIterator_<cv::Vec<float, 4>> imageStart, int imageWidth, int imageHeight, cv::Point2f quad[4], Colour colour, bool additive, double alpha) const
         {
             alpha /= 255.0;
-            std::vector<std::pair<int, int>> ContourX; int y;
+            std::vector<std::pair<int, int>> ContourX; size_t y;
             ContourX.reserve(resolution.second);
 
             for (y = 0; y < resolution.second; y++)
@@ -346,7 +346,7 @@ namespace sb
             minY = std::max(minY, 0.0f);
             maxY = std::min(maxY, (float)resolution.second - 1);
 
-            for (y = (int)minY; y <= (int)maxY; y++)
+            for (y = minY; y <= maxY; y++)
             {
                 if (ContourX[y].second >= ContourX[y].first)
                 {
@@ -492,7 +492,7 @@ namespace sb
 
             while (cnt--)
             {
-                if ((y >= 0) && (y < resolution.second))
+                if ((y >= 0) && ((size_t)y < resolution.second))
                 {
                     if (x < ContourX[y].first) ContourX[y].first = std::max(x, 0);
                     if (x > ContourX[y].second) ContourX[y].second = std::min(x + 1, (int)resolution.first - 1);

@@ -34,7 +34,7 @@ namespace sb
         Keyframe<T> keyframe = Keyframe<T>();
         Keyframe<T> endKeyframe = Keyframe<T>();
         bool found = false;
-        for (int i = 0; i < keyframes.size(); i++)
+        for (size_t i = 0; i < keyframes.size(); i++)
         {
             if (keyframes[i].time > time)
             {

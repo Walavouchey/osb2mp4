@@ -22,8 +22,8 @@ void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, st
             + (std::get<0>(o) ? std::get<5>(o) + "\t" : "\t")
             + (optionsString.size() >= tabLimit ? "" : "\t")
             + std::get<4>(o) + "\n";
-        int size = optionString.size();
-        int end = wrapLimit;
+        size_t size = optionString.size();
+        size_t end = wrapLimit;
         while (size > wrapLimit)
         {
             int pos = optionString.rfind(" ", end) + 1;
