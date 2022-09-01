@@ -1,2 +1,4 @@
 .cache
 build
+subprojects/packagecache/
+subprojects/libsndfile-1.1.0/

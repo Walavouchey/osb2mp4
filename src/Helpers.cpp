@@ -4,6 +4,7 @@
 #include <utility>
 #include <exception>
 #include <fstream>
+#include <sndfile.h>
 
 #if _WIN32
 #define popen _popen
@@ -64,7 +65,13 @@ namespace sb {
 
     double getAudioDuration(const std::string& filepath)
     {
-        return std::stod(exec("ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"" + filepath + "\""));
+        SF_INFO info;
+        auto file = sf_open(filepath.c_str(), SFM_READ, &info);
+        if (!file) {
+            throw std::runtime_error(sf_strerror(nullptr));
+        }
+        sf_close(file);
+        return (double)info.samplerate / (double)info.frames / (double)info.channels;
     }
 
     cv::Mat convertImage(cv::Mat image)
