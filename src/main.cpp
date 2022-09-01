@@ -1,3 +1,4 @@
+#include <ThreadPool.hpp>
 #include <ArgumentParser.hpp>
 #include <Helpers.hpp>
 #include <Sprite.hpp>
@@ -214,17 +215,22 @@ int main(int argc, char const* argv[])
         cv::Size(resolution.first, resolution.second)
     );
 
+    std::vector<cv::Mat> frames {};
+    frames.reserve(frameCount);
+    auto thread_pool = sb::ThreadPool();
+
     ProgressBar progress("Rendering video: ", frameCount, 0, 0.5f);
-#pragma omp parallel for ordered schedule(dynamic)
     for (int i = 0; i < frameCount; i++)
     {
-        cv::Mat frame = storyboard.DrawFrame(starttime + i * 1000.0 / frame_rate);
-#pragma omp ordered
-        {
-            writer.write(frame);
-            progress.update();
-        }
+        thread_pool.post_task([&storyboard, &frames, starttime, i, frame_rate] {
+            auto time = starttime + i + 1000.0 / frame_rate;
+            frames[i] = storyboard.DrawFrame(time);
+        });
+        progress.update();
     }
+    std::cout << "Writing frames\n";
+    for (int i = 0; i < frameCount; i++)
+        writer.write(frames[i]);
     writer.release();
     progress.finish();
 

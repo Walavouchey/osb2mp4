@@ -24,6 +24,7 @@ executable('osb2mp4', [
     'src/Parser.cpp',
     'src/Sprite.cpp',
     'src/Storyboard.cpp',
+    'src/ThreadPool.cpp',
     'src/Trigger.cpp',
   ],
   include_directories: 'src',
