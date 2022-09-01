@@ -3,6 +3,7 @@
 #include <Sprite.hpp>
 #include <Storyboard.hpp>
 #include <cmath>
+#include <cstdlib>
 #include <memory>
 #include <opencv2/videoio.hpp>
 #include <optional>
@@ -175,12 +176,27 @@ int main(int argc, char const* argv[])
             maybe_end_time.value() - starttime
             : std::max(activetime.second, audioDuration) - starttime);
     
+    char temporary_audio_file_path[] = "XXXXXX.mp3";
+    if (mkstemps(temporary_audio_file_path, 4) < 0) {
+        perror("mkstemps");
+        exit(1);
+    }
+    std::cout << "Temporary audio path: "
+              << temporary_audio_file_path << std::endl;
     std::cout << "Generating audio...";
-    storyboard.generateAudio("temp.mp3");
+    storyboard.generateAudio(temporary_audio_file_path);
 
+    char temporary_video_file_path[] = "XXXXXX.avi";
+    if (mkstemps(temporary_video_file_path, 4) < 0) {
+        sb::removeFile(temporary_audio_file_path);
+        perror("mkstemps");
+        exit(1);
+    }
+    std::cout << "Temporary video path: "
+              << temporary_video_file_path << std::endl;
     int frameCount = (int)std::ceil(frame_rate * duration / 1000.0);
     cv::VideoWriter writer = cv::VideoWriter(
-        "temp.avi",
+        temporary_video_file_path,
         cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
         frame_rate,
         cv::Size(resolution.first, resolution.second)
@@ -202,14 +218,19 @@ int main(int argc, char const* argv[])
 
     std::cout << "Merging audio and video...\n";
     std::stringstream command;
-    command << std::fixed << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + storyboard.GetAudioLeadIn() << "ms -to "
-        << starttime + duration + storyboard.GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << output_file_name;
+    command << std::fixed << "ffmpeg -y -v error -stats "
+            << "-i " << temporary_video_file_path
+            << " -ss " << starttime + storyboard.GetAudioLeadIn()
+            << "ms -to " << starttime + duration + storyboard.GetAudioLeadIn()
+            << "ms -accurate_seek "
+            << "-i " << temporary_audio_file_path << " -c:v copy "
+            << output_file_name;
     system(command.str().c_str());
     if (!keep_temporary_files)
     {
         std::cout << "Deleting temporary files...\n";
-        sb::removeFile("temp.mp3");
-        sb::removeFile("temp.avi");
+        sb::removeFile(temporary_audio_file_path);
+        sb::removeFile(temporary_video_file_path);
     }
 
     std::cout << "Done\n";
