@@ -1,200 +1,188 @@
-#include <progressbar.hpp>
-#include <Storyboard.hpp>
-
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <string>
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include <optional>
-#include <string_view>
+#include <ArgumentParser.hpp>
+#include <Helpers.hpp>
 #include <Sprite.hpp>
+#include <Storyboard.hpp>
+#include <cmath>
+#include <memory>
+#include <opencv2/videoio.hpp>
+#include <optional>
+#include <progressbar.hpp>
 
-struct Option {
-    std::string_view option;
-    std::string_view alias;
-    std::string_view explanation;
-    std::string_view placeholder;
-    std::function<void(std::string_view arg)> onUse;
-    bool requiresArgument;
-};
+int main(int argc, char const* argv[])
+{
+    auto argument_parser = sb::ArgumentParser();
 
-static void printUsageAndExit(const std::vector<Option>& options, std::string_view filename);
+    auto program_name = argv[0];
+    argument_parser.add_flag("--help", "-h", "show help message", [&] {
+        argument_parser.print_usage_and_exit(program_name, 0);
+    });
 
-int main(int argc, char* argv[]) {
-    std::string filename = argv[0];
-    std::string directory;
-    std::string diff;
-    std::optional<double> _starttime;
-    std::optional<double> _endtime;
-    std::optional<double> _duration;
-    int frameWidth = 1920;
-    int frameHeight = 1080;
-    float fps = 30;
-    float volume = 1.0f;
-    float musicVolume = 1.0f;
-    float effectVolume = 1.0f;
-    float dim = 1.0f;
-    bool useStoryboardAspectRatio = false;
-    bool showFailLayer = false;
-    std::string outputFile = "video.mp4";
-    bool keepTemporaryFiles = false;
-    float zoom = 1;
+    std::optional<double> maybe_start_time = {};
+    argument_parser.add_option("--start-time", "-s", "time",
+        "start time in ms (default: automatic)",
+        [&](auto arg) {
+            maybe_start_time = std::stod(std::string(arg));
+        });
 
-    std::vector<std::string> arguments;
-    for (int i = 0; i < argc; i++)
-        arguments.push_back(std::string(argv[i]));
+    std::optional<double> maybe_end_time = {};
+    argument_parser.add_option("--end-time", "-e", "time",
+        "end time in ms (default: automatic)",
+        [&](auto arg) {
+            maybe_end_time = std::stod(std::string(arg));
+        });
 
-    auto set_optional_double = [](std::optional<double>& value) {
-        return [&](std::string_view arg) { value = std::stod(std::string(arg)); };
+    std::optional<double> maybe_duration = {};
+    argument_parser.add_option("--duration", "-d", "time",
+        "duration in ms (default: automatic)",
+        [&](auto arg) {
+            maybe_duration = std::stod(std::string(arg));
+        });
+
+    std::string_view output_file_name = "video.mp4";
+    argument_parser.add_option("--output", "-o", "file",
+        "output video name (default: video.mp4)",
+        [&](auto arg) {
+            output_file_name = arg;
+        });
+
+    std::string_view difficulty_file_name = {};
+    argument_parser.add_option("--difficulty", "-diff", "file",
+        "difficulty file name (default: first found)",
+        [&](auto arg) {
+            difficulty_file_name = arg;
+        });
+
+    uint64_t width = 1920;
+    argument_parser.add_option("--width", "-w", "pixels",
+        "video width (default: 1920)",
+        [&](auto arg) {
+            width = std::stoul(std::string(arg));
+        });
+
+    uint64_t height = 1080;
+    argument_parser.add_option("--height", "-h", "pixels",
+        "video height (default: 1080)",
+        [&](auto arg) {
+            height = std::stoul(std::string(arg));
+        });
+
+    uint64_t frame_rate = 30;
+    argument_parser.add_option("--frame-rate", "-f", "fps",
+        "video frame rate (default: 30)",
+        [&](auto arg) {
+            frame_rate = std::stoul(std::string(arg));
+        });
+
+    float volume = 1.0;
+    argument_parser.add_option("--volume", "-v", "volume",
+        "overall volume from 0 to 100 (default: 100)",
+        [&](auto arg) {
+                volume = std::stoul(std::string(arg)) / 100.0;
+        });
+
+    float music_volume = 1.0;
+    argument_parser.add_option("--volume", "-v", "volume",
+        "overall volume from 0 to 100 (default: 100)",
+        [&](auto arg) {
+            music_volume = std::stoul(std::string(arg)) / 100.0;
+        });
+
+    float effect_volume = 1.0;
+    argument_parser.add_option("--volume", "-v", "volume",
+        "overall volume from 0 to 100 (default: 100)",
+        [&](auto arg) {
+            effect_volume = std::stoul(std::string(arg)) / 100.0;
+        });
+
+    float background_dim = 1.0;
+    argument_parser.add_option("--background-dim", "-dim", "dim",
+        "background dim value from 0 to 100 (default: 0)",
+        [&](auto arg) {
+            background_dim = 1 - std::stoul(std::string(arg)) / 100.0;
+        });
+
+    bool respect_aspect_ratio = false;
+    argument_parser.add_flag("--respect-aspect-ratio", "-ar",
+        "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file",
+        [&] {
+            respect_aspect_ratio = true;
+        });
+
+    bool show_fail_layer = false;
+    argument_parser.add_flag("--show-fail-layer", "-fail",
+        "show the fail layer instead of the pass layer",
+        [&] {
+            show_fail_layer = true;
+        });
+
+    bool keep_temporary_files = false;
+    argument_parser.add_flag("--keep-temporary-files", "-keep",
+        "don't delete temporary files",
+        [&] {
+            keep_temporary_files = true;
+        });
+
+    float zoom_factor = 1.0;
+    argument_parser.add_option("--zoom", "-z", "factor",
+        "zoom factor to use when rendering, useful for checking out-of-bounds sprites (default: 1)",
+        [&](auto arg) {
+            zoom_factor = std::stof(std::string(arg));
+        });
+
+    std::string_view osu_folder = {};
+    argument_parser.add_positional_argument("osu-folder",
+        [&](auto arg) {
+            osu_folder = arg;
+        });
+
+    argument_parser.run(argc, argv);
+
+
+    auto value_or = [](std::optional<double> maybe, std::string fallback) {
+        return maybe ? std::to_string(*maybe) : fallback;
     };
-    auto set_int = [](int& value) {
-        return [&](std::string_view arg) { value = std::stoi(std::string(arg)); };
-    };
-    auto set_float_with_scale = [](float& value, float scale) {
-        return [&, scale](std::string_view arg) { value = std::stof(std::string(arg)) * scale; };
-    };
-    std::vector<Option> options
-    {
-        {
-            "-s",    "--start-time",   "start time in ms (default: automatic)",       "time",
-            set_optional_double(_starttime), true
-        },
-        { 
-            "-e",    "--end-time",     "end time in ms (default: automatic)",         "time",
-            set_optional_double(_endtime), true
-        },
-        { 
-            "-d",    "--duration",     "duration in ms (default: automatic)",         "time",
-            set_optional_double(_duration), true
-        },
-        { 
-            "-o",    "--output",       "output video name (default: video.mp4)",      "time",
-            [&](auto arg){ outputFile = arg; }, true
-        },
-        { 
-            "-diff", "--difficulty",   "difficulty file name (default: first found)", "filename",
-            [&](auto arg){ diff = arg; }, true
-        },
-        { 
-            "-w",    "--width",        "video width (default: 1920)",                 "pixels",
-            set_int(frameWidth), true
-        },
-        {
-            "-h",    "--height",       "video height (default: 1080)",                "pixels",
-            set_int(frameHeight), true
-        },
-        { 
-            "-f",    "--frame-rate",   "video frame rate (default: 30)",              "fps",
-            set_float_with_scale(fps, 1), true
-        },
-        {
-            "-v",    "--volume",       "overall volume from 0 to 100 (default: 100)", "volume",
-            set_float_with_scale(volume, 0.01), true
-        },
-        {
-            "-mv",   "--music-volume", "music volume from 0 to 100 (default: 100)",   "volume", 
-            set_float_with_scale(musicVolume, 0.01), true
-        },
-        {
-            "-ev",   "--effect-volume", "effect volume from 0 to 100, i.e. samples (default: 100)", "volume",
-            set_float_with_scale(effectVolume, 0.01), true
-        },
-        {
-            "-dim", "--background-dim", "background dim value from 0 to 100 (default: 0)", "dim",
-            [&](auto arg) { dim = 1 - std::stof(std::string(arg)) / 100.0f; }, true
-        },
-        {
-            "-ar", "--respect-aspect-ratio", "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", "",
-            [&](auto) { useStoryboardAspectRatio = true; }, false
-        },
-        {
-            "-fail", "--show-fail-layer", "show the fail layer instead of the pass layer", "",
-            [&](auto) { showFailLayer = true; }, false
-        },
-        {
-            "-keep", "--keep-temp-files", "don't delete temporary files (temp.mp3 & temp.avi)", "",
-            [&](auto) { keepTemporaryFiles = true; }, false
-        },
-        {
-            "-z", "--zoom", "zoom factor to use when rendering, useful for checking out-of-bounds sprites (default: 1)", "factor", 
-            [&](auto arg) { zoom = std::stof(std::string(arg)); }, true
-        }
-    };
+    std::cout << "CONFIG:" << std::endl;
+    std::cout << "\tstart time: " << value_or(maybe_start_time, "automatic") << std::endl;
+    std::cout << "\tend time: " << value_or(maybe_end_time, "automatic") << std::endl;
+    std::cout << "\tduration: " << value_or(maybe_duration, "automatic") << std::endl;
+    std::cout << "\toutput: " << output_file_name << std::endl;
+    std::cout << "\tdifficulty file: " << (difficulty_file_name.empty() ? "first found" : difficulty_file_name) << std::endl;
+    std::cout << "\twidth: " << width << std::endl;
+    std::cout << "\theight: " << height << std::endl;
+    std::cout << "\tframe rate: " << frame_rate << std::endl;
+    std::cout << "\tvolume: " << volume << std::endl;
+    std::cout << "\tmusic volume: " << music_volume << std::endl;
+    std::cout << "\teffect volume: " << effect_volume << std::endl;
+    std::cout << "\tbackground dim: " << background_dim << std::endl;
+    std::cout << "\trespect aspect ratio: " << respect_aspect_ratio << std::endl;
+    std::cout << "\tshow fail layer: " << show_fail_layer << std::endl;
+    std::cout << "\tkeep temporary files: " << keep_temporary_files << std::endl;
+    std::cout << "\tzoom factor: " << zoom_factor << std::endl;
+    std::cout << "\tosu-folder: " << osu_folder << std::endl;
 
-    for (std::vector<std::string>::iterator arg = arguments.begin() + 1; arg < arguments.end(); arg++)
-    {
-        bool optionFound = false;
-        for (auto& option : options)
-        {
-            if (*arg == option.option || *arg == option.alias)
-            {
-                if (arg + 1 != arguments.end() || !option.requiresArgument)
-                {
-                    try { option.onUse(*(arg += (arg + 1 != arguments.end() && option.requiresArgument) ? 1 : 0)); }
-                    catch (...)
-                    {
-                        std::cerr << *(--arg) << ": invalid argument \"" << *(++arg) << "\"\n";
-                        printUsageAndExit(options, filename);
-                    }
-                    optionFound = true;
-                    break;
-                }
-                else
-                {
-                    std::cerr << "Option \"" << *arg << "\" requires an argument!\n";
-                    printUsageAndExit(options, filename);
-                };
-            }
-        }
-        if (!optionFound && !directory.empty())
-        {
-            std::cerr << "Unrecognised option: " << *arg << std::endl;
-            printUsageAndExit(options, filename);
-        }
-        if (!optionFound && directory.empty()) directory = *arg;
-    }
-    if (directory.empty())
-    {
-        std::cerr << "No song folder specified!\n";
-        printUsageAndExit(options, filename);
-    }
+    auto storyboard = sb::Storyboard(std::string(osu_folder), std::string(difficulty_file_name),
+        { width, height }, music_volume * volume, effect_volume * volume,
+        background_dim, respect_aspect_ratio, show_fail_layer, zoom_factor);
 
-    std::unique_ptr<sb::Storyboard> sb;
-
-    try
-    {
-        sb = std::make_unique<sb::Storyboard>(
-            directory, diff, std::pair<unsigned, unsigned>(frameWidth, frameHeight),
-            musicVolume * volume, effectVolume * volume, dim, useStoryboardAspectRatio, showFailLayer, zoom);
-    }
-    catch (std::exception e)
-    {
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
-
-    std::pair<double, double> activetime = sb->GetActiveTime();
-    std::pair<unsigned, unsigned> resolution = sb->GetResolution();
-    double audioLeadIn = sb->GetAudioLeadIn();
-    double audioDuration = sb->GetAudioDuration();
-    double starttime = _starttime.value_or(std::min(activetime.first, audioLeadIn));
-    double duration = _duration.has_value() ?
-        _duration.value()
-        : (_endtime.has_value() ?
-            _endtime.value() - starttime
+    auto activetime = storyboard.GetActiveTime();
+    auto resolution = storyboard.GetResolution();
+    auto audioLeadIn = storyboard.GetAudioLeadIn();
+    auto audioDuration = storyboard.GetAudioDuration();
+    auto starttime = maybe_start_time.value_or(std::min(activetime.first, audioLeadIn));
+    double duration = maybe_duration.has_value() ?
+        maybe_duration.value()
+        : (maybe_end_time.has_value() ?
+            maybe_end_time.value() - starttime
             : std::max(activetime.second, audioDuration) - starttime);
     
     std::cout << "Generating audio...";
-    sb->generateAudio("temp.mp3");
+    storyboard.generateAudio("temp.mp3");
 
-    int frameCount = (int)std::ceil(fps * duration / 1000.0);
+    int frameCount = (int)std::ceil(frame_rate * duration / 1000.0);
     cv::VideoWriter writer = cv::VideoWriter(
         "temp.avi",
         cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-        fps,
+        frame_rate,
         cv::Size(resolution.first, resolution.second)
     );
 
@@ -202,7 +190,7 @@ int main(int argc, char* argv[]) {
 #pragma omp parallel for ordered schedule(dynamic)
     for (int i = 0; i < frameCount; i++)
     {
-        cv::Mat frame = sb->DrawFrame(starttime + i * 1000.0 / fps);
+        cv::Mat frame = storyboard.DrawFrame(starttime + i * 1000.0 / frame_rate);
 #pragma omp ordered
         {
             writer.write(frame);
@@ -214,10 +202,10 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Merging audio and video...\n";
     std::stringstream command;
-    command << std::fixed << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
-        << starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;
+    command << std::fixed << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + storyboard.GetAudioLeadIn() << "ms -to "
+        << starttime + duration + storyboard.GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << output_file_name;
     system(command.str().c_str());
-    if (!keepTemporaryFiles)
+    if (!keep_temporary_files)
     {
         std::cout << "Deleting temporary files...\n";
         sb::removeFile("temp.mp3");
@@ -226,31 +214,4 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Done\n";
     return 0;
-}
-
-
-static void printUsageAndExit(const std::vector<Option>& options, std::string_view filename)
-{
-    constexpr unsigned wrapLimit = 80;
-    constexpr unsigned tabLimit = 20;
-    std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
-    for (auto const& o : options)
-    {
-        std::string optionsString = " " + std::string(o.option) + ", " + std::string(o.alias) + " ";
-        std::string optionString = optionsString
-            + (o.requiresArgument ? std::string(o.placeholder) + "\t" : "\t")
-            + (optionsString.size() >= tabLimit ? "" : "\t")
-            + std::string(o.explanation) + "\n";
-        int size = optionString.size();
-        int end = wrapLimit;
-        while (size > wrapLimit)
-        {
-            int pos = optionString.rfind(" ", end) + 1;
-            size -= pos - 33;
-            end += 33;
-            optionString.insert(pos, "\n\t\t\t\t");
-        }
-        std::cerr << optionString;
-    }
-    exit(1);
 }

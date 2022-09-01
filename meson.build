@@ -17,6 +17,7 @@ libsndfile_dep = subproject('libsndfile').get_variable('libsndfile_dep')
 executable('osb2mp4', [
     'src/main.cpp',
     'src/Animation.cpp',
+    'src/ArgumentParser.cpp',
     'src/Helpers.cpp',
     'src/ImageReader.cpp',
     'src/Loop.cpp',
