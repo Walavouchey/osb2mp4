@@ -8,6 +8,7 @@
 #include <opencv2/videoio.hpp>
 #include <optional>
 #include <progressbar.hpp>
+#include <Defer.hpp>
 
 int main(int argc, char const* argv[])
 {
@@ -181,6 +182,12 @@ int main(int argc, char const* argv[])
         perror("mkstemps");
         exit(1);
     }
+    Defer remove_temporary_audio_file = [&] {
+        if (!keep_temporary_files) {
+            std::cout << "Removing " << temporary_audio_file_path << "\n";
+            sb::removeFile(temporary_audio_file_path);
+        }
+    };
     std::cout << "Temporary audio path: "
               << temporary_audio_file_path << std::endl;
     std::cout << "Generating audio...";
@@ -188,10 +195,15 @@ int main(int argc, char const* argv[])
 
     char temporary_video_file_path[] = "XXXXXX.avi";
     if (mkstemps(temporary_video_file_path, 4) < 0) {
-        sb::removeFile(temporary_audio_file_path);
         perror("mkstemps");
         exit(1);
     }
+    Defer remove_temporary_video_file = [&] {
+        if (!keep_temporary_files) {
+            std::cout << "Removing " << temporary_video_file_path << "\n";
+            sb::removeFile(temporary_video_file_path);
+        }
+    };
     std::cout << "Temporary video path: "
               << temporary_video_file_path << std::endl;
     int frameCount = (int)std::ceil(frame_rate * duration / 1000.0);
@@ -226,12 +238,6 @@ int main(int argc, char const* argv[])
             << "-i " << temporary_audio_file_path << " -c:v copy "
             << output_file_name;
     system(command.str().c_str());
-    if (!keep_temporary_files)
-    {
-        std::cout << "Deleting temporary files...\n";
-        sb::removeFile(temporary_audio_file_path);
-        sb::removeFile(temporary_video_file_path);
-    }
 
     std::cout << "Done\n";
     return 0;
