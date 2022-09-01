@@ -161,7 +161,7 @@ int main(int argc, char const* argv[])
     std::cout << "\tzoom factor: " << zoom_factor << std::endl;
     std::cout << "\tosu-folder: " << osu_folder << std::endl;
 
-    auto storyboard = sb::Storyboard(std::string(osu_folder), std::string(difficulty_file_name),
+    auto storyboard = sb::Storyboard(osu_folder, difficulty_file_name,
         { width, height }, music_volume * volume, effect_volume * volume,
         background_dim, respect_aspect_ratio, show_fail_layer, zoom_factor);
 

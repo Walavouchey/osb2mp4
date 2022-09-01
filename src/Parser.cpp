@@ -413,7 +413,7 @@ namespace sb {
         }
     }
 
-    void ParseStoryboard(const std::filesystem::path& directory, const std::string& osb, const std::string& diff,
+    void ParseStoryboard(const std::filesystem::path& directory, const std::string& osb, const std::string_view diff,
         std::vector<std::unique_ptr<Sprite>>& sprites,
         std::vector<Sample>& samples,
         std::vector<std::pair<double, HitSound>>& hitSounds,
@@ -425,7 +425,8 @@ namespace sb {
         std::ifstream osbFile(osb);
         if (!osbFile.is_open()) throw std::runtime_error("Failed to open .osb file \"" + osb + "\"");
         std::ifstream diffFile(std::filesystem::path(directory) / diff);
-        if (!diffFile.is_open()) throw std::runtime_error("Failed to open .osu file \"" + diff + "\"");
+        if (!diffFile.is_open())
+            throw std::runtime_error("Failed to open .osu file \"" + std::string(diff) + "\"");
 
         std::size_t lineNumber = 0;
         std::unordered_map<std::string, std::string> variables;

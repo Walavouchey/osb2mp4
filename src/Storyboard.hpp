@@ -23,7 +23,7 @@ namespace sb
     class Storyboard
     {
     public:
-        Storyboard(const std::filesystem::path& directory, const std::string& diff, std::pair<unsigned, unsigned> resolution, float musicVolume, float effectVolume, float dim, bool useStoryboardAspectRatio, bool showFailLayer, float zoom = 1);
+        Storyboard(const std::filesystem::path& directory, std::string_view diff, std::pair<unsigned, unsigned> resolution, float musicVolume, float effectVolume, float dim, bool useStoryboardAspectRatio, bool showFailLayer, float zoom = 1);
 
         std::pair<unsigned, unsigned> GetResolution() const
         {
@@ -88,7 +88,7 @@ namespace sb
     private:
         std::filesystem::path directory;
         std::string osb;
-        std::string diff;
+        std::string_view diff;
         std::vector<std::unique_ptr<Sprite>> sprites;
         Background background;
         std::vector<Sample> samples;
