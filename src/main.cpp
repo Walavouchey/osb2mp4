@@ -9,33 +9,19 @@
 #include <string>
 #include <functional>
 #include <optional>
+#include <string_view>
 #include <Sprite.hpp>
 
-void printUsageAndExit(std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options, std::string filename)
-{
-    constexpr unsigned wrapLimit = 80;
-    constexpr unsigned tabLimit = 20;
-    std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
-    for (auto& o : options)
-    {
-        std::string optionsString = " " + std::get<1>(o) + ", " + std::get<2>(o) + " ";
-        std::string optionString = optionsString
-            + (std::get<0>(o) ? std::get<5>(o) + "\t" : "\t")
-            + (optionsString.size() >= tabLimit ? "" : "\t")
-            + std::get<4>(o) + "\n";
-        size_t size = optionString.size();
-        size_t end = wrapLimit;
-        while (size > wrapLimit)
-        {
-            int pos = optionString.rfind(" ", end) + 1;
-            size -= pos - 33;
-            end += 33;
-            optionString.insert(pos, "\n\t\t\t\t");
-        }
-        std::cerr << optionString;
-    }
-    exit(1);
-}
+struct Option {
+    std::string_view option;
+    std::string_view alias;
+    std::string_view explanation;
+    std::string_view placeholder;
+    std::function<void(std::string_view arg)> onUse;
+    bool requiresArgument;
+};
+
+static void printUsageAndExit(const std::vector<Option>& options, std::string_view filename);
 
 int main(int argc, char* argv[]) {
     std::string filename = argv[0];
@@ -61,34 +47,81 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < argc; i++)
         arguments.push_back(std::string(argv[i]));
 
-    std::vector<std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>> options
+    auto set_optional_double = [](std::optional<double>& value) {
+        return [&](std::string_view arg) { value = std::stod(std::string(arg)); };
+    };
+    auto set_int = [](int& value) {
+        return [&](std::string_view arg) { value = std::stoi(std::string(arg)); };
+    };
+    auto set_float_with_scale = [](float& value, float scale) {
+        return [&, scale](std::string_view arg) { value = std::stof(std::string(arg)) * scale; };
+    };
+    std::vector<Option> options
     {
-#define opt(requiresArgument, option, alias, var, assign, explanation, placeholder) \
-            std::tuple<bool, std::string, std::string, std::function<void(std::string&)>, std::string, std::string>( \
-                requiresArgument, \
-                option, \
-                alias, \
-                std::function([&var]([[maybe_unused]] std::string& arg) { var = assign; }), \
-                explanation, \
-                placeholder \
-            )
-        opt(true, "-s", "--start-time", _starttime, std::stod(arg), "start time in ms (default: automatic)", "time"),
-        opt(true, "-e", "--end-time", _endtime, std::stod(arg), "end time in ms (default: automatic)", "time"),
-        opt(true, "-d", "--duration", _duration, std::stod(arg), "duration in ms (default: automatic)", "time"),
-        opt(true, "-o", "--output", outputFile, arg, "output video name (default: video.mp4)", "time"),
-        opt(true, "-diff", "--difficulty", diff, arg, "difficulty file name (default: first found)", "filename"),
-        opt(true, "-w", "--width", frameWidth, std::stoi(arg), "video width (default: 1920)", "pixels"),
-        opt(true, "-h", "--height", frameHeight, std::stoi(arg), "video height (default: 1080)", "pixels"),
-        opt(true, "-f", "--frame-rate", fps, std::stof(arg), "video frame rate (default: 30)", "fps"),
-        opt(true, "-v", "--volume", volume, std::stof(arg) / 100.0f, "overall volume from 0 to 100 (default: 100)", "volume"),
-        opt(true, "-mv", "--music-volume", musicVolume, std::stof(arg) / 100.0f, "music volume from 0 to 100 (default: 100)", "volume"),
-        opt(true, "-ev", "--effect-volume", effectVolume, std::stof(arg) / 100.0f, "effect volume from 0 to 100, i.e. samples (default: 100)", "volume"),
-        opt(true, "-dim", "--background-dim", dim, 1 - std::stof(arg) / 100.0f, "background dim value from 0 to 100 (default: 0)", "dim"),
-        opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
-        opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "show the fail layer instead of the pass layer", ""),
-        opt(false, "-keep", "--keep-temp-files", keepTemporaryFiles, true, "don't delete temporary files (temp.mp3 & temp.avi)", ""),
-        opt(true, "-z", "--zoom", zoom, std::stof(arg), "zoom factor to use when rendering, useful for checking out-of-bounds sprites (default: 1)", "factor")
-#undef opt
+        {
+            "-s",    "--start-time",   "start time in ms (default: automatic)",       "time",
+            set_optional_double(_starttime), true
+        },
+        { 
+            "-e",    "--end-time",     "end time in ms (default: automatic)",         "time",
+            set_optional_double(_endtime), true
+        },
+        { 
+            "-d",    "--duration",     "duration in ms (default: automatic)",         "time",
+            set_optional_double(_duration), true
+        },
+        { 
+            "-o",    "--output",       "output video name (default: video.mp4)",      "time",
+            [&](auto arg){ outputFile = arg; }, true
+        },
+        { 
+            "-diff", "--difficulty",   "difficulty file name (default: first found)", "filename",
+            [&](auto arg){ diff = arg; }, true
+        },
+        { 
+            "-w",    "--width",        "video width (default: 1920)",                 "pixels",
+            set_int(frameWidth), true
+        },
+        {
+            "-h",    "--height",       "video height (default: 1080)",                "pixels",
+            set_int(frameHeight), true
+        },
+        { 
+            "-f",    "--frame-rate",   "video frame rate (default: 30)",              "fps",
+            set_float_with_scale(fps, 1), true
+        },
+        {
+            "-v",    "--volume",       "overall volume from 0 to 100 (default: 100)", "volume",
+            set_float_with_scale(volume, 0.01), true
+        },
+        {
+            "-mv",   "--music-volume", "music volume from 0 to 100 (default: 100)",   "volume", 
+            set_float_with_scale(musicVolume, 0.01), true
+        },
+        {
+            "-ev",   "--effect-volume", "effect volume from 0 to 100, i.e. samples (default: 100)", "volume",
+            set_float_with_scale(effectVolume, 0.01), true
+        },
+        {
+            "-dim", "--background-dim", "background dim value from 0 to 100 (default: 0)", "dim",
+            [&](auto arg) { dim = 1 - std::stof(std::string(arg)) / 100.0f; }, true
+        },
+        {
+            "-ar", "--respect-aspect-ratio", "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", "",
+            [&](auto) { useStoryboardAspectRatio = true; }, false
+        },
+        {
+            "-fail", "--show-fail-layer", "show the fail layer instead of the pass layer", "",
+            [&](auto) { showFailLayer = true; }, false
+        },
+        {
+            "-keep", "--keep-temp-files", "don't delete temporary files (temp.mp3 & temp.avi)", "",
+            [&](auto) { keepTemporaryFiles = true; }, false
+        },
+        {
+            "-z", "--zoom", "zoom factor to use when rendering, useful for checking out-of-bounds sprites (default: 1)", "factor", 
+            [&](auto arg) { zoom = std::stof(std::string(arg)); }, true
+        }
     };
 
     for (std::vector<std::string>::iterator arg = arguments.begin() + 1; arg < arguments.end(); arg++)
@@ -96,11 +129,11 @@ int main(int argc, char* argv[]) {
         bool optionFound = false;
         for (auto& option : options)
         {
-            if (*arg == std::get<1>(option) || *arg == std::get<2>(option))
+            if (*arg == option.option || *arg == option.alias)
             {
-                if (arg + 1 != arguments.end() || !std::get<0>(option))
+                if (arg + 1 != arguments.end() || !option.requiresArgument)
                 {
-                    try { std::get<3>(option)(*(arg += (arg + 1 != arguments.end() && std::get<0>(option) ? 1 : 0))); }
+                    try { option.onUse(*(arg += (arg + 1 != arguments.end() && option.requiresArgument) ? 1 : 0)); }
                     catch (...)
                     {
                         std::cerr << *(--arg) << ": invalid argument \"" << *(++arg) << "\"\n";
@@ -193,4 +226,31 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Done\n";
     return 0;
+}
+
+
+static void printUsageAndExit(const std::vector<Option>& options, std::string_view filename)
+{
+    constexpr unsigned wrapLimit = 80;
+    constexpr unsigned tabLimit = 20;
+    std::cerr << "\nUsage: " << std::filesystem::path(filename).filename().string() << " song_folder [options]\n\noptions:\n";
+    for (auto const& o : options)
+    {
+        std::string optionsString = " " + std::string(o.option) + ", " + std::string(o.alias) + " ";
+        std::string optionString = optionsString
+            + (o.requiresArgument ? std::string(o.placeholder) + "\t" : "\t")
+            + (optionsString.size() >= tabLimit ? "" : "\t")
+            + std::string(o.explanation) + "\n";
+        int size = optionString.size();
+        int end = wrapLimit;
+        while (size > wrapLimit)
+        {
+            int pos = optionString.rfind(" ", end) + 1;
+            size -= pos - 33;
+            end += 33;
+            optionString.insert(pos, "\n\t\t\t\t");
+        }
+        std::cerr << optionString;
+    }
+    exit(1);
 }
