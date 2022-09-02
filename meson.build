@@ -8,6 +8,7 @@ project('osb2mp4', 'cpp',
 
 add_global_arguments('-Wno-unsequenced', language: 'cpp')
 add_global_arguments('-Wno-c11-extensions', language: 'cpp')
+add_global_arguments('-Wno-gnu-case-range', language: 'cpp')
 
 gifdec_dep = subproject('gifdec').get_variable('gifdec_dep')
 openmp_dep = dependency('openmp', required: false)
@@ -23,7 +24,12 @@ osb2mp4_exe = executable('osb2mp4', [
     'src/Animation.cpp',
     'src/Helpers.cpp',
     'src/ImageReader.cpp',
+    'src/Lexer/util.cpp',
     'src/Loop.cpp',
+    'src/OSB/Lexer.cpp',
+    'src/OSB/OSBFile.cpp',
+    'src/OSB/Parser.cpp',
+    'src/OSB/Token.cpp',
     'src/Parser.cpp',
     'src/Sprite.cpp',
     'src/Storyboard.cpp',

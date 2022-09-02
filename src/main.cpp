@@ -1,6 +1,11 @@
+#include <Lexer/SourceFile.hpp>
 #include <CLI/ArgumentParser.hpp>
 #include <Core/Defer.hpp>
+#include <Core/MappedFile.hpp>
+#include <Core/ThreadPool.hpp>
 #include <Helpers.hpp>
+#include <OSB/Lexer.hpp>
+#include <OSB/Parser.hpp>
 #include <Sprite.hpp>
 #include <Storyboard.hpp>
 #include <cmath>
@@ -139,6 +144,40 @@ int main(int argc, char const* argv[])
 
     argument_parser.run(argc, argv);
 
+    // FIXME: Don't hijack osu_folder
+    auto osb_source_path = osu_folder;
+
+    auto file_or_error = Core::MappedFile::open(osb_source_path);
+    if (file_or_error.is_error()) {
+        file_or_error.error().show();
+        exit(1);
+    }
+    auto file = file_or_error.release_value();
+    auto osb_source = Lexer::SourceFile { osb_source_path, file.view() };
+    auto lex_result = OSB::lex_osb(osb_source.text);
+    if (lex_result.is_error()) {
+        auto result = lex_result.error().show(osb_source);
+        if (result.is_error())
+            result.error().show();
+        exit(1);
+    }
+    auto tokens = lex_result.release_value();
+    for (auto token : tokens)
+        token.dump(osb_source.text);
+
+    auto parse_result = OSB::parse_osb(tokens);
+    if (parse_result.is_error()) {
+        auto result = parse_result.error().show(osb_source);
+        if (result.is_error())
+            result.error().show();
+        exit(1);
+    }
+    auto parsed_items = parse_result.release_value();
+    for (auto& item : parsed_items)
+        item.dump(osb_source.text);
+    std::cout << '\n';
+
+#if 0
 
     auto value_or = [](std::optional<double> maybe, std::string fallback) {
         return maybe ? std::to_string(*maybe) : fallback;
@@ -246,4 +285,5 @@ int main(int argc, char const* argv[])
 
     std::cout << "Done\n";
     return 0;
+#endif
 }
