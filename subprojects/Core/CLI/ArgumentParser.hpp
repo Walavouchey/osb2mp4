@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string_view>
 
-namespace sb {
+namespace CLI {
 
 class ArgumentParser {
 public:

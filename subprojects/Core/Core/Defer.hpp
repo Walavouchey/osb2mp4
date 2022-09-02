@@ -1,5 +1,7 @@
 #pragma once
 
+namespace Core {
+
 template <typename F>
 class Defer {
 public:
@@ -15,3 +17,5 @@ public:
 private:
     F callback;
 };
+
+}

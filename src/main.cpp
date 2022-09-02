@@ -1,5 +1,5 @@
-#include <ThreadPool.hpp>
-#include <ArgumentParser.hpp>
+#include <CLI/ArgumentParser.hpp>
+#include <Core/Defer.hpp>
 #include <Helpers.hpp>
 #include <Sprite.hpp>
 #include <Storyboard.hpp>
@@ -9,11 +9,10 @@
 #include <opencv2/videoio.hpp>
 #include <optional>
 #include <progressbar.hpp>
-#include <Defer.hpp>
 
 int main(int argc, char const* argv[])
 {
-    auto argument_parser = sb::ArgumentParser();
+    auto argument_parser = CLI::ArgumentParser();
 
     auto program_name = argv[0];
     argument_parser.add_flag("--help", "-h", "show help message", [&] {
@@ -183,7 +182,7 @@ int main(int argc, char const* argv[])
         perror("mkstemps");
         exit(1);
     }
-    Defer remove_temporary_audio_file = [&] {
+    Core::Defer remove_temporary_audio_file = [&] {
         if (!keep_temporary_files) {
             std::cout << "Removing " << temporary_audio_file_path << "\n";
             sb::removeFile(temporary_audio_file_path);
@@ -199,7 +198,7 @@ int main(int argc, char const* argv[])
         perror("mkstemps");
         exit(1);
     }
-    Defer remove_temporary_video_file = [&] {
+    Core::Defer remove_temporary_video_file = [&] {
         if (!keep_temporary_files) {
             std::cout << "Removing " << temporary_video_file_path << "\n";
             sb::removeFile(temporary_video_file_path);

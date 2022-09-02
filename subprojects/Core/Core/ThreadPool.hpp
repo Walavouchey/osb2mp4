@@ -4,7 +4,7 @@
 #include <vector>
 #include <functional>
 
-namespace sb {
+namespace Core {
 
 class ThreadPool {
 public:

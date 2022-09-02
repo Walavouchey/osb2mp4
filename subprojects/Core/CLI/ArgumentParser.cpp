@@ -1,7 +1,7 @@
-#include <ArgumentParser.hpp>
+#include <CLI/ArgumentParser.hpp>
 #include <exception>
 
-namespace sb {
+namespace CLI {
 
 void ArgumentParser::run(int argc, char const* argv[]) const
 {

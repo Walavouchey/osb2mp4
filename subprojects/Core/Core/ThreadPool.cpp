@@ -1,7 +1,7 @@
-#include <ThreadPool.hpp>
+#include <Core/ThreadPool.hpp>
 #include <thread>
 
-namespace sb {
+namespace Core {
 
 ThreadPool::ThreadPool(uint32_t threads)
 {
