@@ -1,6 +1,6 @@
 # osb2mp4
 
-An [osu!](https://osu.ppy.sh) storyboard to video converter. Will be maintained until an alternative exists in lazer.
+An [osu!](https://osu.ppy.sh) storyboard to video converter. ~~Will be maintained until an alternative exists in lazer.~~ Very much unmaintained, pending rewrite.
 
 This project has been in progress on and off since the middle of September 2020. Actual time spent working so far has probably been about 6 weeks.
 
