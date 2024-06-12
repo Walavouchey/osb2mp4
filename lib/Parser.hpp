@@ -184,9 +184,9 @@ namespace sb
                         }
                         std::string triggerName = split[1];
                         double starttime = std::stod(split[2]);
-                        double endTime = std::stod(split[3]);
+                        double endtime = std::stod(split[3]);
                         int groupNumber = split.size() > 4 ? std::stoi(split[4]) : 0;
-                        (*(sprites.end() - 1))->AddTrigger({ triggerName, starttime, endTime, groupNumber });
+                        (*(sprites.end() - 1))->AddTrigger({ triggerName, starttime, endtime, groupNumber });
                         inTrigger = true;
                         break;
                     }
@@ -209,7 +209,7 @@ namespace sb
 
                     Easing easing = static_cast<Easing>(std::stoi(split[1]));
                     double starttime = std::stod(split[2]);
-                    double endTime = std::stod(split[3]);
+                    double endtime = split.size() > 3 ? std::stod(split[3]) : starttime;
 
                     std::unordered_map<std::string, EventType>::const_iterator k = EventTypeStrings.find(split[0]);
                     EventType eventType = k == EventTypeStrings.end() ? EventType::None : k->second;
@@ -220,7 +220,7 @@ namespace sb
                     {
                         double startValue = std::stod(split[4]);
                         double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::F, easing, starttime, endTime, startValue, endValue);
+                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::F, easing, starttime, endtime, startValue, endValue);
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -230,7 +230,7 @@ namespace sb
                     {
                         double startValue = std::stod(split[4]);
                         double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::S, easing, starttime, endTime, startValue, endValue);
+                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::S, easing, starttime, endtime, startValue, endValue);
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -242,7 +242,7 @@ namespace sb
                         double startY = std::stod(split[5]);
                         double endX = split.size() > 6 ? std::stod(split[6]) : startX;
                         double endY = split.size() > 7 ? std::stod(split[7]) : startY;
-                        std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::V, easing, starttime, endTime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
+                        std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::V, easing, starttime, endtime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -252,7 +252,7 @@ namespace sb
                     {
                         double startValue = std::stod(split[4]);
                         double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::R, easing, starttime, endTime, startValue, endValue);
+                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::R, easing, starttime, endtime, startValue, endValue);
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -264,7 +264,7 @@ namespace sb
                         double startY = std::stod(split[5]);
                         double endX = split.size() > 6 ? std::stod(split[6]) : startX;
                         double endY = split.size() > 7 ? std::stod(split[7]) : startY;
-                        std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::M, easing, starttime, endTime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
+                        std::unique_ptr<Event<std::pair<double, double>>> event = std::make_unique<Event<std::pair<double, double>>>(EventType::M, easing, starttime, endtime, std::pair<double, double> { startX, startY }, std::pair<double, double>{ endX, endY });
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -274,7 +274,7 @@ namespace sb
                     {
                         double startValue = std::stod(split[4]);
                         double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MX, easing, starttime, endTime, startValue, endValue);
+                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MX, easing, starttime, endtime, startValue, endValue);
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -284,7 +284,7 @@ namespace sb
                     {
                         double startValue = std::stod(split[4]);
                         double endValue = split.size() > 5 ? std::stod(split[5]) : startValue;
-                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MY, easing, starttime, endTime, startValue, endValue);
+                        std::unique_ptr<Event<double>> event = std::make_unique<Event<double>>(EventType::MY, easing, starttime, endtime, startValue, endValue);
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -298,7 +298,7 @@ namespace sb
                         int endR = split.size() > 7 ? std::stoi(split[7]) : startR;
                         int endG = split.size() > 8 ? std::stoi(split[8]) : startG;
                         int endB = split.size() > 9 ? std::stoi(split[9]) : startB;
-                        std::unique_ptr<Event<Colour>> event = std::make_unique<Event<Colour>>(EventType::C, easing, starttime, endTime, Colour { startR / 255.0f, startG / 255.0f, startB / 255.0f }, Colour{ endR / 255.0f, endG / 255.0f, endB / 255.0f });
+                        std::unique_ptr<Event<Colour>> event = std::make_unique<Event<Colour>>(EventType::C, easing, starttime, endtime, Colour { startR / 255.0f, startG / 255.0f, startB / 255.0f }, Colour{ endR / 255.0f, endG / 255.0f, endB / 255.0f });
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));
                         else if (inLoop) (*(sprites.end() - 1))->AddEventInLoop(std::move(event));
                         else (*(sprites.end() - 1))->AddEvent(std::move(event));
@@ -311,13 +311,13 @@ namespace sb
                         switch (parameterType)
                         {
                         case ParameterType::Additive:
-                            event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endTime, ParameterType::Additive, ParameterType::Additive);
+                            event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endtime, ParameterType::Additive, ParameterType::Additive);
                             break;
                         case ParameterType::FlipH:
-                            event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endTime, ParameterType::FlipH, ParameterType::FlipH);
+                            event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endtime, ParameterType::FlipH, ParameterType::FlipH);
                             break;
                         case ParameterType::FlipV:
-                            event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endTime, ParameterType::FlipV, ParameterType::FlipV);
+                            event = std::make_unique<Event<ParameterType>>(EventType::P, easing, starttime, endtime, ParameterType::FlipV, ParameterType::FlipV);
                             break;
                         }
                         if (inTrigger) (*(sprites.end() - 1))->AddEventInTrigger(std::move(event));

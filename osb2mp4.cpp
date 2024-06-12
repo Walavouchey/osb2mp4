@@ -43,6 +43,8 @@ int main(int argc, char* argv[]) {
     std::optional<double> _starttime;
     std::optional<double> _endtime;
     std::optional<double> _duration;
+    int speed = 1;
+    std::optional<int> screenshotTime;
     int frameWidth = 1920;
     int frameHeight = 1080;
     float fps = 30;
@@ -52,7 +54,7 @@ int main(int argc, char* argv[]) {
     float dim = 1.0f;
     bool useStoryboardAspectRatio = false;
     bool showFailLayer = false;
-    std::string outputFile = "video.mp4";
+    std::string outputFile = "";
     bool keepTemporaryFiles = false;
     float zoom = 1;
 
@@ -74,6 +76,8 @@ int main(int argc, char* argv[]) {
         opt(true, "-s", "--start-time", _starttime, std::stod(arg), "start time in ms (default: automatic)", "time"),
         opt(true, "-e", "--end-time", _endtime, std::stod(arg), "end time in ms (default: automatic)", "time"),
         opt(true, "-d", "--duration", _duration, std::stod(arg), "duration in ms (default: automatic)", "time"),
+        opt(true, "-fs", "--frame-skip", speed, std::stoi(arg), "speed multiplier (n - 1 frames are skipped) (default: 1)", "multiplier"),
+        opt(true, "-ss", "--screenshot", screenshotTime, std::stoi(arg), "render a single frame to a .png file instead of rendering a video", "time"),
         opt(true, "-o", "--output", outputFile, arg, "output video name (default: video.mp4)", "time"),
         opt(true, "-diff", "--difficulty", diff, arg, "difficulty file name (default: first found)", "filename"),
         opt(true, "-w", "--width", frameWidth, std::stoi(arg), "video width (default: 1920)", "pixels"),
@@ -86,7 +90,7 @@ int main(int argc, char* argv[]) {
         opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
         opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "show the fail layer instead of the pass layer", ""),
         opt(false, "-keep", "--keep-temp-files", keepTemporaryFiles, true, "don't delete temporary files (temp.mp3 & temp.avi)", ""),
-        opt(true, "-z", "--zoom", zoom, std::stof(arg), "zoom factor to use when rendering, useful for checking out-of-bounds sprites (default: 1)", "factor")
+        opt(true, "-z", "--zoom", zoom, std::stof(arg), "scale factor to use when rendering - useful for checking out-of-bounds sprites (default: 1)", "factor")
 #undef opt
     };
 
@@ -130,6 +134,8 @@ int main(int argc, char* argv[]) {
 
     std::unique_ptr<sb::Storyboard> sb;
 
+    if (outputFile.empty()) outputFile = screenshotTime ? "image.png" : "video.mp4";
+
     try
     {
         sb = std::make_unique<sb::Storyboard>(
@@ -142,52 +148,61 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    std::pair<double, double> activetime = sb->GetActiveTime();
-    std::pair<unsigned, unsigned> resolution = sb->GetResolution();
-    double audioLeadIn = sb->GetAudioLeadIn();
-    double audioDuration = sb->GetAudioDuration();
-    double starttime = _starttime.value_or(std::min(activetime.first, audioLeadIn));
-    double duration = _duration.has_value() ?
-        _duration.value()
-        : (_endtime.has_value() ?
-            _endtime.value() - starttime
-            : std::max(activetime.second, audioDuration) - starttime);
-    
-    std::cout << "Generating audio...";
-    sb->generateAudio("temp.mp3");
-
-    int frameCount = (int)std::ceil(fps * duration / 1000.0);
-    cv::VideoWriter writer = cv::VideoWriter(
-        "temp.avi",
-        cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-        fps,
-        cv::Size(resolution.first, resolution.second)
-    );
-
-    ProgressBar progress("Rendering video: ", frameCount, 0, 0.5f);
-#pragma omp parallel for ordered schedule(dynamic)
-    for (int i = 0; i < frameCount; i++)
+    if (screenshotTime)
     {
-        cv::Mat frame = sb->DrawFrame(starttime + i * 1000.0 / fps);
-#pragma omp ordered
-        {
-            writer.write(frame);
-            progress.update();
-        }
+        std::cout << "Rendering frame at " << screenshotTime.value() << " ms..." << std::endl;
+        cv::Mat frame = sb->DrawFrame(screenshotTime.value());
+        cv::imwrite(outputFile, frame);
     }
-    writer.release();
-    progress.finish();
-
-    std::cout << "Merging audio and video...\n";
-    std::stringstream command;
-    command << std::fixed << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
-        << starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;
-    system(command.str().c_str());
-    if (!keepTemporaryFiles)
+    else
     {
-        std::cout << "Deleting temporary files...\n";
-        sb::removeFile("temp.mp3");
-        sb::removeFile("temp.avi");
+        std::pair<double, double> activetime = sb->GetActiveTime();
+        std::pair<unsigned, unsigned> resolution = sb->GetResolution();
+        double audioLeadIn = sb->GetAudioLeadIn();
+        double audioDuration = sb->GetAudioDuration();
+        double starttime = _starttime.value_or(std::min(activetime.first, audioLeadIn));
+        double duration = _duration.has_value() ?
+            _duration.value()
+            : (_endtime.has_value() ?
+                _endtime.value() - starttime
+                : std::max(activetime.second, audioDuration) - starttime);
+        
+        std::cout << "Generating audio...";
+        sb->generateAudio("temp.mp3");
+
+        int frameCount = (int)(std::ceil(fps * duration / 1000.0) / (speed));
+        cv::VideoWriter writer = cv::VideoWriter(
+            "temp.avi",
+            cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+            fps,
+            cv::Size(resolution.first, resolution.second)
+        );
+
+        ProgressBar progress("Rendering video: ", frameCount, 0, 0.5f);
+    #pragma omp parallel for ordered schedule(dynamic)
+        for (int i = 0; i < frameCount; i++)
+        {
+            cv::Mat frame = sb->DrawFrame(starttime + i * 1000.0 / fps * speed);
+    #pragma omp ordered
+            {
+                writer.write(frame);
+                progress.update();
+            }
+        }
+        writer.release();
+        progress.finish();
+
+        std::cout << "Merging audio and video...\n";
+        std::stringstream command;
+        command << std::fixed << "ffmpeg -y -v error -stats -i temp.avi -ss " << starttime + sb->GetAudioLeadIn() << "ms -to "
+            << starttime + duration + sb->GetAudioLeadIn() << "ms -accurate_seek -i temp.mp3 -c:v copy " << outputFile;
+        system(command.str().c_str());
+        if (!keepTemporaryFiles)
+        {
+            std::cout << "Deleting temporary files...\n";
+            sb::removeFile("temp.mp3");
+            sb::removeFile("temp.avi");
+        }
     }
 
     std::cout << "Done\n";

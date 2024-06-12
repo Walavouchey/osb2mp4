@@ -112,6 +112,7 @@ namespace sb
             if (video.exists && !(videoOpen = videoCap.open((directory / video.filepath).generic_string()))) videoCap.release();
 
             std::cout << "Loading images..." << std::endl;
+            int imageCount = 0;
             for (const std::unique_ptr<Sprite>& sprite : sprites)
             {
                 std::vector<std::string> filePaths = sprite->GetFilePaths();
@@ -122,6 +123,7 @@ namespace sb
                     auto ret = spriteImages.emplace(filePath, image);
                 }
             }
+            std::cout << "Loaded " << imageCount << " images." << std::endl;
         }
         std::pair<unsigned, unsigned> GetResolution() const
         {
