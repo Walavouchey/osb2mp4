@@ -304,6 +304,7 @@ namespace sb
         {
             return visibletime;
         }
+        bool enabled = true;
     protected:
         std::vector<Loop> loops;
         std::vector<Trigger> triggers;

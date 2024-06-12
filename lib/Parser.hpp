@@ -68,7 +68,7 @@ namespace sb
             char lineTemp[lineMaxReadLength];
             file.getline(lineTemp, lineMaxReadLength);
             line = std::string(lineTemp);
-            
+
             if (line.length() == 0) continue;
             if (line.rfind("//", 0) == 0) continue;
 

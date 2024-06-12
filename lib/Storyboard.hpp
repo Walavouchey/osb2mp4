@@ -2,6 +2,7 @@
 
 #include <Components.hpp>
 #include <Parser.hpp>
+#include <Helpers.hpp>
 
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -15,11 +16,52 @@
 
 namespace sb
 {
+    bool shouldIncludeInRender(const std::string& path, const std::vector<std::string>& include, const std::vector<std::string>& exclude)
+    {
+        const std::string normalisedPath = sb::normalisedPath(path);
+
+        bool shouldInclude = true;
+        if (!include.empty())
+        {
+            shouldInclude = false;
+            for (const std::string& i : include)
+            {
+                if (sb::startsWith(normalisedPath, sb::normalisedPath(i)))
+                {
+                    shouldInclude = true;
+                    break;
+                }
+            }
+        }
+
+        for (const std::string& i : exclude)
+        {
+            if (sb::startsWith(normalisedPath, sb::normalisedPath(i)))
+            {
+                shouldInclude = false;
+                break;
+            }
+        }
+
+        return shouldInclude;
+    }
+
     class Storyboard
     {
     public:
-        Storyboard(const std::filesystem::path& directory, const std::string& diff, std::pair<unsigned, unsigned> resolution, float musicVolume, float effectVolume, float dim, bool useStoryboardAspectRatio, bool showFailLayer, float zoom = 1)
-            :
+        Storyboard(
+            const std::filesystem::path& directory,
+            const std::string& diff,
+            std::pair<unsigned, unsigned> resolution,
+            float musicVolume,
+            float effectVolume,
+            float dim,
+            bool useStoryboardAspectRatio,
+            bool showFailLayer,
+            float zoom = 1,
+            const std::vector<std::string>& includePaths = {},
+            const std::vector<std::string>& excludePaths = {}
+            ) :
             directory(directory),
             diff(diff),
             resolution(resolution),
@@ -111,6 +153,22 @@ namespace sb
 
             if (video.exists && !(videoOpen = videoCap.open((directory / video.filepath).generic_string()))) videoCap.release();
 
+            for (const std::unique_ptr<Sprite>& sprite : sprites)
+            {
+                if (!shouldIncludeInRender(sprite->GetFilePaths()[0], includePaths, excludePaths))
+                {
+                    sprite->enabled = false;
+                }
+            }
+            if (!shouldIncludeInRender(background.filepath, includePaths, excludePaths))
+            {
+                background.exists = false;
+            }
+            if (!shouldIncludeInRender(video.filepath, includePaths, excludePaths))
+            {
+                background.exists = false;
+            }
+
             std::cout << "Loading images..." << std::endl;
             int imageCount = 0;
             for (const std::unique_ptr<Sprite>& sprite : sprites)
@@ -121,6 +179,7 @@ namespace sb
                     if (spriteImages.find(filePath) != spriteImages.end()) continue;
                     cv::Mat image = readImageFile((directory / filePath).generic_string());
                     auto ret = spriteImages.emplace(filePath, image);
+                    imageCount++;
                 }
             }
             std::cout << "Loaded " << imageCount << " images." << std::endl;
@@ -203,6 +262,8 @@ namespace sb
             cv::MatIterator_<cv::Vec<uint8_t, 3>> frameStart = frame.begin<cv::Vec<cv::uint8_t, 3>>();
             for (const std::unique_ptr<Sprite>& sprite : sprites)
             {
+                if (!sprite->enabled) continue;
+
                 if (!(sprite->GetActiveTime().first <= time && sprite->GetActiveTime().second > time))
                     continue;
                 if (sprite->GetLayer() == (showFailLayer ? Layer::Pass : Layer::Fail)) continue;
@@ -322,7 +383,7 @@ namespace sb
             {
                 ContourX.push_back({ std::numeric_limits<int>::max(), std::numeric_limits<int>::min() });
             }
-            
+
             for (int i = 0; i < 4; i++)
             {
                 quad[i] -= cv::Point2f(resolution.first * 0.5f, resolution.second * 0.5f);

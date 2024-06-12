@@ -95,4 +95,19 @@ namespace sb
             std::cerr << "Could not delete \"" << filepath << "\": " << e.what() << std::endl;
         }
     }
+
+    bool startsWith(const std::string& s, const std::string& prefix)
+    {
+        return s.rfind(prefix, 0) == 0;
+    }
+
+    std::string normalisedPath(std::string path)
+    {
+        stringReplace(path, "\\", "/");
+        if (startsWith(path, "./")) // starts with ./
+        {
+            path = path.substr(2);
+        }
+        return path;
+    }
 }

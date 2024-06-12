@@ -1,5 +1,6 @@
 #include <progressbar.hpp>
 #include <Storyboard.hpp>
+#include <Helpers.hpp>
 
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -57,6 +58,8 @@ int main(int argc, char* argv[]) {
     std::string outputFile = "";
     bool keepTemporaryFiles = false;
     float zoom = 1;
+    std::vector<std::string> includePaths;
+    std::vector<std::string> excludePaths;
 
     std::vector<std::string> arguments;
     for (int i = 0; i < argc; i++)
@@ -90,7 +93,9 @@ int main(int argc, char* argv[]) {
         opt(false, "-ar", "--respect-aspect-ratio", useStoryboardAspectRatio, true, "change to 4:3 aspect ratio if WidescreenStoryboard is disabled in the difficulty file", ""),
         opt(false, "-fail", "--show-fail-layer", showFailLayer, true, "show the fail layer instead of the pass layer", ""),
         opt(false, "-keep", "--keep-temp-files", keepTemporaryFiles, true, "don't delete temporary files (temp.mp3 & temp.avi)", ""),
-        opt(true, "-z", "--zoom", zoom, std::stof(arg), "scale factor to use when rendering - useful for checking out-of-bounds sprites (default: 1)", "factor")
+        opt(true, "-z", "--zoom", zoom, std::stof(arg), "scale factor to use when rendering - useful for checking out-of-bounds sprites (default: 1)", "factor"),
+        opt(true, "-+", "--include", includePaths, sb::stringSplit(arg, ","), "comma-separated list of folder or sprite paths to solely include when rendering", "comma-separated paths"),
+        opt(true, "--", "--exclude", excludePaths, sb::stringSplit(arg, ","), "comma-separated list of folder or sprite paths to exclude when rendering", "factor")
 #undef opt
     };
 
@@ -140,7 +145,7 @@ int main(int argc, char* argv[]) {
     {
         sb = std::make_unique<sb::Storyboard>(
             directory, diff, std::pair<unsigned, unsigned>(frameWidth, frameHeight),
-            musicVolume * volume, effectVolume * volume, dim, useStoryboardAspectRatio, showFailLayer, zoom);
+            musicVolume * volume, effectVolume * volume, dim, useStoryboardAspectRatio, showFailLayer, zoom, includePaths, excludePaths);
     }
     catch (std::exception e)
     {
@@ -166,7 +171,7 @@ int main(int argc, char* argv[]) {
             : (_endtime.has_value() ?
                 _endtime.value() - starttime
                 : std::max(activetime.second, audioDuration) - starttime);
-        
+
         std::cout << "Generating audio...";
         sb->generateAudio("temp.mp3");
 
