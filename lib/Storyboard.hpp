@@ -327,6 +327,24 @@ namespace sb
                     std::swap(quad[2], quad[3]);
                 }
 
+                // swapping the quad points as is creates an off-by-one error and shifts the sprite by one pixel.
+                // something to do with how `RasteriseQuad` iterates through screen pixels. my best guess is that the actual cause is in `ScanLine`,
+                // but there's clearly some assumption somewhere that the quad points are in a specific order
+                if (flipH)
+                {
+                    for (auto &point : quad)
+                    {
+                        point.x--;
+                    }
+                }
+                if (flipV)
+                {
+                    for (auto &point : quad)
+                    {
+                        point.y--;
+                    }
+                }
+
                 Colour colour = sprite->ColourAt(time);
                 bool additive = sprite->EffectAt(time, ParameterType::Additive);
 
